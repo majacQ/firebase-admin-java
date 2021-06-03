@@ -22,6 +22,13 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.api.client.http.HttpRequestFactory;
 import com.google.api.client.http.HttpResponseInterceptor;
+  <<<<<<< mrschmidt-errormsg
+  <<<<<<< rpb/hacky-auth-bypass
+  =======
+import com.google.api.client.http.json.JsonHttpContent;
+  >>>>>>> chong-shao-typo-fix
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
 import com.google.api.client.json.JsonFactory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
@@ -34,9 +41,21 @@ import com.google.firebase.internal.AbstractPlatformErrorHandler;
 import com.google.firebase.internal.ApiClientUtils;
 import com.google.firebase.internal.ErrorHandlingHttpClient;
 import com.google.firebase.internal.HttpRequestInfo;
+  <<<<<<< mrschmidt-errormsg
+  <<<<<<< rpb/hacky-auth-bypass
+import com.google.firebase.internal.SdkUtils;
+import com.google.firebase.remoteconfig.internal.RemoteConfigServiceErrorResponse;
+  =======
+import com.google.firebase.internal.NonNull;
 import com.google.firebase.internal.SdkUtils;
 import com.google.firebase.remoteconfig.internal.RemoteConfigServiceErrorResponse;
 import com.google.firebase.remoteconfig.internal.TemplateResponse;
+  >>>>>>> chong-shao-typo-fix
+  =======
+import com.google.firebase.internal.SdkUtils;
+import com.google.firebase.remoteconfig.internal.RemoteConfigServiceErrorResponse;
+import com.google.firebase.remoteconfig.internal.TemplateResponse;
+  >>>>>>> mrschmidt-transactiondataloss
 
 import java.io.IOException;
 import java.util.List;
@@ -91,6 +110,17 @@ final class FirebaseRemoteConfigClientImpl implements FirebaseRemoteConfigClient
   }
 
   @Override
+  <<<<<<< mrschmidt-errormsg
+  <<<<<<< rpb/hacky-auth-bypass
+  public RemoteConfigTemplate getTemplate() throws FirebaseRemoteConfigException {
+    HttpRequestInfo request = HttpRequestInfo.buildGetRequest(remoteConfigUrl)
+            .addAllHeaders(COMMON_HEADERS);
+    IncomingHttpResponse response = httpClient.send(request);
+    RemoteConfigTemplate parsed = httpClient.parse(response, RemoteConfigTemplate.class);
+    return parsed.setETag(getETag(response));
+  =======
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
   public Template getTemplate() throws FirebaseRemoteConfigException {
     HttpRequestInfo request = HttpRequestInfo.buildGetRequest(remoteConfigUrl)
             .addAllHeaders(COMMON_HEADERS);
@@ -100,6 +130,72 @@ final class FirebaseRemoteConfigClientImpl implements FirebaseRemoteConfigClient
     return template.setETag(getETag(response));
   }
 
+  <<<<<<< mrschmidt-errormsg
+  @Override
+  public Template getTemplateAtVersion(
+          @NonNull String versionNumber) throws FirebaseRemoteConfigException {
+    checkArgument(RemoteConfigUtil.isValidVersionNumber(versionNumber),
+            "Version number must be a non-empty string in int64 format.");
+    HttpRequestInfo request = HttpRequestInfo.buildGetRequest(remoteConfigUrl)
+            .addAllHeaders(COMMON_HEADERS)
+            .addParameter("versionNumber", versionNumber);
+    IncomingHttpResponse response = httpClient.send(request);
+    TemplateResponse templateResponse = httpClient.parse(response, TemplateResponse.class);
+    Template template = new Template(templateResponse);
+    return template.setETag(getETag(response));
+  }
+
+  @Override
+  public Template publishTemplate(@NonNull Template template, boolean validateOnly,
+                                  boolean forcePublish) throws FirebaseRemoteConfigException {
+    checkArgument(template != null, "Template must not be null.");
+    HttpRequestInfo request = HttpRequestInfo.buildRequest("PUT", remoteConfigUrl,
+            new JsonHttpContent(jsonFactory, template.toTemplateResponse(false)))
+            .addAllHeaders(COMMON_HEADERS)
+            .addHeader("If-Match", forcePublish ? "*" : template.getETag());
+    if (validateOnly) {
+      request.addParameter("validateOnly", true);
+    }
+    IncomingHttpResponse response = httpClient.send(request);
+    TemplateResponse templateResponse = httpClient.parse(response, TemplateResponse.class);
+    Template publishedTemplate = new Template(templateResponse);
+    if (validateOnly) {
+      // validating a template returns an etag with the suffix -0 means that the provided template
+      // was successfully validated. We set the etag back to the original etag of the template
+      // to allow subsequent operations.
+      return publishedTemplate.setETag(template.getETag());
+    }
+    return publishedTemplate.setETag(getETag(response));
+  }
+
+  @Override
+  public Template rollback(@NonNull String versionNumber) throws FirebaseRemoteConfigException {
+    checkArgument(RemoteConfigUtil.isValidVersionNumber(versionNumber),
+            "Version number must be a non-empty string in int64 format.");
+    Map<String, String> content = ImmutableMap.of("versionNumber", versionNumber);
+    HttpRequestInfo request = HttpRequestInfo
+            .buildJsonPostRequest(remoteConfigUrl + ":rollback", content)
+            .addAllHeaders(COMMON_HEADERS);
+    IncomingHttpResponse response = httpClient.send(request);
+    TemplateResponse templateResponse = httpClient.parse(response, TemplateResponse.class);
+    Template template = new Template(templateResponse);
+    return template.setETag(getETag(response));
+  }
+
+  @Override
+  public TemplateResponse.ListVersionsResponse listVersions(
+          ListVersionsOptions options) throws FirebaseRemoteConfigException {
+    HttpRequestInfo request = HttpRequestInfo.buildGetRequest(remoteConfigUrl + ":listVersions")
+            .addAllHeaders(COMMON_HEADERS);
+    if (options != null) {
+      request.addAllParameters(options.wrapForTransport());
+    }
+    return httpClient.sendAndParse(request, TemplateResponse.ListVersionsResponse.class);
+  >>>>>>> chong-shao-typo-fix
+  }
+
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
   private String getETag(IncomingHttpResponse response) {
     List<String> etagList = (List<String>) response.getHeaders().get("etag");
     checkState(etagList != null && !etagList.isEmpty(),

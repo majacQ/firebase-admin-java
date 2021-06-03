@@ -16,6 +16,44 @@
 
 package com.google.firebase.remoteconfig;
 
+  <<<<<<< mrschmidt-errormsg
+  <<<<<<< rpb/hacky-auth-bypass
+public class MockRemoteConfigClient implements FirebaseRemoteConfigClient{
+
+  private RemoteConfigTemplate resultTemplate;
+  private FirebaseRemoteConfigException exception;
+
+  private MockRemoteConfigClient(RemoteConfigTemplate resultTemplate,
+                                 FirebaseRemoteConfigException exception) {
+    this.resultTemplate = resultTemplate;
+    this.exception = exception;
+  }
+
+  static MockRemoteConfigClient fromTemplate(RemoteConfigTemplate resultTemplate) {
+    return new MockRemoteConfigClient(resultTemplate, null);
+  }
+
+  static MockRemoteConfigClient fromException(FirebaseRemoteConfigException exception) {
+    return new MockRemoteConfigClient(null, exception);
+  }
+
+  @Override
+  public RemoteConfigTemplate getTemplate() throws FirebaseRemoteConfigException {
+  =======
+import com.google.firebase.remoteconfig.internal.TemplateResponse.ListVersionsResponse;
+
+public class MockRemoteConfigClient implements FirebaseRemoteConfigClient{
+
+  private final Template resultTemplate;
+  private final FirebaseRemoteConfigException exception;
+  private final ListVersionsResponse listVersionsResponse;
+
+  private MockRemoteConfigClient(Template resultTemplate,
+                                 ListVersionsResponse listVersionsResponse,
+                                 FirebaseRemoteConfigException exception) {
+    this.resultTemplate = resultTemplate;
+    this.listVersionsResponse = listVersionsResponse;
+  =======
 public class MockRemoteConfigClient implements FirebaseRemoteConfigClient{
 
   private Template resultTemplate;
@@ -24,15 +62,29 @@ public class MockRemoteConfigClient implements FirebaseRemoteConfigClient{
   private MockRemoteConfigClient(Template resultTemplate,
                                  FirebaseRemoteConfigException exception) {
     this.resultTemplate = resultTemplate;
+  >>>>>>> mrschmidt-transactiondataloss
     this.exception = exception;
   }
 
   static MockRemoteConfigClient fromTemplate(Template resultTemplate) {
+  <<<<<<< mrschmidt-errormsg
+    return new MockRemoteConfigClient(resultTemplate, null, null);
+  }
+
+  static MockRemoteConfigClient fromListVersionsResponse(
+          ListVersionsResponse listVersionsResponse) {
+    return new MockRemoteConfigClient(null, listVersionsResponse, null);
+  }
+
+  static MockRemoteConfigClient fromException(FirebaseRemoteConfigException exception) {
+    return new MockRemoteConfigClient(null, null, exception);
+  =======
     return new MockRemoteConfigClient(resultTemplate, null);
   }
 
   static MockRemoteConfigClient fromException(FirebaseRemoteConfigException exception) {
     return new MockRemoteConfigClient(null, exception);
+  >>>>>>> mrschmidt-transactiondataloss
   }
 
   @Override
@@ -42,4 +94,45 @@ public class MockRemoteConfigClient implements FirebaseRemoteConfigClient{
     }
     return resultTemplate;
   }
+  <<<<<<< mrschmidt-errormsg
+
+  @Override
+  public Template getTemplateAtVersion(String versionNumber) throws FirebaseRemoteConfigException {
+    if (exception != null) {
+      throw exception;
+    }
+    return resultTemplate;
+  }
+
+  @Override
+  public Template publishTemplate(Template template, boolean validateOnly,
+                                  boolean forcePublish) throws FirebaseRemoteConfigException {
+  >>>>>>> chong-shao-typo-fix
+    if (exception != null) {
+      throw exception;
+    }
+    return resultTemplate;
+  }
+  <<<<<<< rpb/hacky-auth-bypass
+  =======
+
+  @Override
+  public Template rollback(String versionNumber) throws FirebaseRemoteConfigException {
+    if (exception != null) {
+      throw exception;
+    }
+    return resultTemplate;
+  }
+
+  @Override
+  public ListVersionsResponse listVersions(
+          ListVersionsOptions options) throws FirebaseRemoteConfigException {
+    if (exception != null) {
+      throw exception;
+    }
+    return listVersionsResponse;
+  }
+  >>>>>>> chong-shao-typo-fix
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
 }
