@@ -25,12 +25,16 @@ import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.JsonParser;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.firebase.internal.ApiClientUtils;
 import com.google.firebase.messaging.AndroidConfig.Priority;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+  <<<<<<< redacted-passwords
 import java.text.SimpleDateFormat;
 import java.util.Date;
+  =======
+  >>>>>>> master
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -94,7 +98,10 @@ public class MessageTest {
   @Test
   public void testNotificationMessageDeprecatedConstructor() throws IOException {
     Message message = Message.builder()
-        .setNotification(new Notification("title", "body"))
+        .setNotification(Notification.builder()
+            .setTitle("title")
+            .setBody("body")
+            .build())
         .setTopic("test-topic")
         .build();
     Map<String, String> data = ImmutableMap.of("title", "title", "body", "body");
@@ -186,7 +193,11 @@ public class MessageTest {
         .put("body_loc_args", ImmutableList.of("body-arg1", "body-arg2", "body-arg3"))
         .put("channel_id", "channel-id")
         // There is a problem with the JsonParser assignment to BigDecimal takes priority over
+  <<<<<<< redacted-passwords
         // all other number types and so this integer value is interpreted as a BigDecimal 
+  =======
+        // all other number types and so this integer value is interpreted as a BigDecimal
+  >>>>>>> master
         // rather than an Integer.
         .put("notification_count", BigDecimal.valueOf(4L))
         .build();
@@ -227,7 +238,11 @@ public class MessageTest {
   public void testAndroidNotificationWithNegativeCount() throws IllegalArgumentException {
     AndroidNotification.builder().setNotificationCount(-1).build();
   }
+  <<<<<<< redacted-passwords
   
+  =======
+
+  >>>>>>> master
   @Test
   public void testAndroidMessageWithoutLocalization() throws IOException {
     Message message = Message.builder()
@@ -752,7 +767,11 @@ public class MessageTest {
   @Test
   public void testImageInNotificationDeprecatedConstructor() throws IOException {
     Message message = Message.builder()
-        .setNotification(new Notification("title", "body", TEST_IMAGE_URL))
+        .setNotification(Notification.builder()
+            .setTitle("title")
+            .setBody("body")
+            .setImage(TEST_IMAGE_URL)
+            .build())
         .setTopic("test-topic")
         .build();
     Map<String, String> data = ImmutableMap.of(
@@ -778,7 +797,11 @@ public class MessageTest {
   @Test
   public void testImageInAndroidNotification() throws IOException {
     Message message = Message.builder()
-        .setNotification(new Notification("title", "body", TEST_IMAGE_URL))
+        .setNotification(Notification.builder()
+            .setTitle("title")
+            .setBody("body")
+            .setImage(TEST_IMAGE_URL)
+            .build())
         .setAndroidConfig(AndroidConfig.builder()
             .setNotification(AndroidNotification.builder()
                 .setTitle("android-title")
@@ -808,7 +831,11 @@ public class MessageTest {
   public void testImageInApnsNotification() throws IOException {
     Message message = Message.builder()
         .setTopic("test-topic")
-        .setNotification(new Notification("title", "body", TEST_IMAGE_URL))
+        .setNotification(Notification.builder()
+            .setTitle("title")
+            .setBody("body")
+            .setImage(TEST_IMAGE_URL)
+            .build())
         .setApnsConfig(
             ApnsConfig.builder().setAps(Aps.builder().build())
                 .setFcmOptions(ApnsFcmOptions.builder().setImage(TEST_IMAGE_URL_APNS).build())
@@ -835,7 +862,11 @@ public class MessageTest {
   }
 
   @Test
+  <<<<<<< redacted-passwords
   public void testInvalidColorInAndroidNotificationLightSettings() throws IOException {
+  =======
+  public void testInvalidColorInAndroidNotificationLightSettings() {
+  >>>>>>> master
     try {
       LightSettings.Builder lightSettingsBuilder = LightSettings.builder()
                       .setColorFromString("#01020K")
@@ -853,7 +884,14 @@ public class MessageTest {
   public void testExtendedAndroidNotificationParameters() throws IOException {
     long[] vibrateTimings = {1000L, 1001L};
     Message message = Message.builder()
+  <<<<<<< redacted-passwords
         .setNotification(new Notification("title", "body"))
+  =======
+        .setNotification(Notification.builder()
+            .setTitle("title")
+            .setBody("body")
+            .build())
+  >>>>>>> master
         .setAndroidConfig(AndroidConfig.builder()
             .setNotification(AndroidNotification.builder()
                 .setTitle("android-title")
@@ -919,7 +957,7 @@ public class MessageTest {
   }
 
   private static Map<String, Object> toMap(Object object) throws IOException {
-    JsonFactory jsonFactory = Utils.getDefaultJsonFactory();
+    JsonFactory jsonFactory = ApiClientUtils.getDefaultJsonFactory();
     String json = jsonFactory.toString(object);
     JsonParser parser = jsonFactory.createJsonParser(json);
     Map<String, Object> map = new HashMap<>();

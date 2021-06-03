@@ -18,16 +18,14 @@ package com.google.firebase.projectmanagement;
 
 import static com.google.firebase.projectmanagement.FirebaseProjectManagementServiceImpl.FIREBASE_PROJECT_MANAGEMENT_URL;
 import static com.google.firebase.projectmanagement.FirebaseProjectManagementServiceImpl.MAXIMUM_LIST_APPS_PAGE_SIZE;
-import static com.google.firebase.projectmanagement.HttpHelper.PATCH_OVERRIDE_KEY;
-import static com.google.firebase.projectmanagement.HttpHelper.PATCH_OVERRIDE_VALUE;
 import static com.google.firebase.projectmanagement.ShaCertificateType.SHA_1;
 import static com.google.firebase.projectmanagement.ShaCertificateType.SHA_256;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.google.api.client.googleapis.util.Utils;
 import com.google.api.client.http.HttpRequest;
 import com.google.api.client.http.HttpRequestFactory;
 import com.google.api.client.http.HttpResponse;
@@ -40,12 +38,22 @@ import com.google.api.client.util.Base64;
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.firebase.ErrorCode;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import com.google.firebase.TestOnlyImplFirebaseTrampolines;
 import com.google.firebase.auth.MockGoogleCredentials;
+  <<<<<<< redacted-passwords
+  =======
+  <<<<<<< v7
+  =======
+import com.google.firebase.internal.ApiClientUtils;
+  >>>>>>> master
+import com.google.firebase.internal.SdkUtils;
+  >>>>>>> master
 import com.google.firebase.internal.TestApiClientUtils;
 import com.google.firebase.testing.MultiRequestMockHttpTransport;
+import com.google.firebase.testing.TestUtils;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -69,6 +77,7 @@ public class FirebaseProjectManagementServiceImplTest {
   private static final String IOS_APP_ID = "test-ios-app-id";
   private static final String IOS_APP_RESOURCE_NAME = "ios/11111";
   private static final String ANDROID_APP_RESOURCE_NAME = "android/11111";
+  private static final String CLIENT_VERSION = "Java/Admin/" + SdkUtils.getVersion();
   private static final IosAppMetadata IOS_APP_METADATA =
       new IosAppMetadata(IOS_APP_RESOURCE_NAME, IOS_APP_ID, DISPLAY_NAME, PROJECT_ID, BUNDLE_ID);
   private static final AndroidAppMetadata ANDROID_APP_METADATA =
@@ -272,7 +281,65 @@ public class FirebaseProjectManagementServiceImplTest {
       serviceImpl.getIosApp(IOS_APP_ID);
       fail("No exception thrown for HTTP error");
     } catch (FirebaseProjectManagementException e) {
-      assertEquals("App ID \"test-ios-app-id\": Internal server error.", e.getMessage());
+      assertEquals(ErrorCode.INTERNAL, e.getErrorCode());
+      assertEquals(
+          "App ID \"test-ios-app-id\": Unexpected HTTP response with status: 500\n{}",
+          e.getMessage());
+      assertNotNull(e.getCause());
+      assertNotNull(e.getHttpResponse());
+    }
+  }
+
+  @Test
+  public void getIosAppHttpErrorWithCode() {
+    firstRpcResponse.setStatusCode(500);
+    firstRpcResponse.setContent(
+        "{\"error\": {\"status\":\"NOT_FOUND\", \"message\":\"Test error\"}}");
+    serviceImpl = initServiceImpl(firstRpcResponse, interceptor);
+
+    try {
+      serviceImpl.getIosApp(IOS_APP_ID);
+      fail("No exception thrown for HTTP error");
+    } catch (FirebaseProjectManagementException e) {
+      assertEquals(ErrorCode.NOT_FOUND, e.getErrorCode());
+      assertEquals("App ID \"test-ios-app-id\": Test error", e.getMessage());
+      assertNotNull(e.getCause());
+      assertNotNull(e.getHttpResponse());
+    }
+  }
+
+  @Test
+  public void getIosAppParseError() {
+    firstRpcResponse.setContent("not json");
+    serviceImpl = initServiceImpl(firstRpcResponse, interceptor);
+
+    try {
+      serviceImpl.getIosApp(IOS_APP_ID);
+      fail("No exception thrown for HTTP error");
+    } catch (FirebaseProjectManagementException e) {
+      assertEquals(ErrorCode.UNKNOWN, e.getErrorCode());
+      assertTrue(e.getMessage().startsWith(
+          "App ID \"test-ios-app-id\": Error while parsing HTTP response"));
+      assertNotNull(e.getCause());
+      assertNotNull(e.getHttpResponse());
+    }
+  }
+
+  @Test
+  public void getIosAppTransportError() {
+    FirebaseProjectManagementServiceImpl serviceImpl = initServiceImplWithFaultyTransport();
+
+    try {
+      serviceImpl.getIosApp(IOS_APP_ID);
+      fail("No exception thrown for HTTP error");
+    } catch (FirebaseProjectManagementException e) {
+      assertEquals(ErrorCode.UNKNOWN, e.getErrorCode());
+      assertEquals(
+          "App ID \"test-ios-app-id\": Unknown error while making a remote service call: "
+              + "transport error",
+          e.getMessage());
+      assertNotNull(e.getCause());
+      assertNull(e.getHttpResponse());
     }
   }
 
@@ -467,11 +534,10 @@ public class FirebaseProjectManagementServiceImplTest {
         "%s/v1beta1/projects/-/iosApps/%s?update_mask=display_name",
         FIREBASE_PROJECT_MANAGEMENT_URL,
         IOS_APP_ID);
-    checkRequestHeader(expectedUrl, HttpMethod.POST);
+    checkRequestHeader(expectedUrl, HttpMethod.PATCH);
     ImmutableMap<String, String> payload =
         ImmutableMap.<String, String>builder().put("display_name", DISPLAY_NAME).build();
     checkRequestPayload(payload);
-    checkPatchRequest();
   }
 
   @Test
@@ -485,11 +551,10 @@ public class FirebaseProjectManagementServiceImplTest {
         "%s/v1beta1/projects/-/iosApps/%s?update_mask=display_name",
         FIREBASE_PROJECT_MANAGEMENT_URL,
         IOS_APP_ID);
-    checkRequestHeader(expectedUrl, HttpMethod.POST);
+    checkRequestHeader(expectedUrl, HttpMethod.PATCH);
     ImmutableMap<String, String> payload =
         ImmutableMap.<String, String>builder().put("display_name", DISPLAY_NAME).build();
     checkRequestPayload(payload);
-    checkPatchRequest();
   }
 
   @Test
@@ -554,7 +619,65 @@ public class FirebaseProjectManagementServiceImplTest {
       serviceImpl.getAndroidApp(ANDROID_APP_ID);
       fail("No exception thrown for HTTP error");
     } catch (FirebaseProjectManagementException e) {
-      assertEquals("App ID \"test-android-app-id\": Internal server error.", e.getMessage());
+      assertEquals(ErrorCode.INTERNAL, e.getErrorCode());
+      assertEquals(
+          "App ID \"test-android-app-id\": Unexpected HTTP response with status: 500\n{}",
+          e.getMessage());
+      assertNotNull(e.getCause());
+      assertNotNull(e.getHttpResponse());
+    }
+  }
+
+  @Test
+  public void getAndroidAppHttpErrorWithCode() {
+    firstRpcResponse.setStatusCode(500);
+    firstRpcResponse.setContent(
+        "{\"error\": {\"status\":\"NOT_FOUND\", \"message\":\"Test error\"}}");
+    serviceImpl = initServiceImpl(firstRpcResponse, interceptor);
+
+    try {
+      serviceImpl.getAndroidApp(ANDROID_APP_ID);
+      fail("No exception thrown for HTTP error");
+    } catch (FirebaseProjectManagementException e) {
+      assertEquals(ErrorCode.NOT_FOUND, e.getErrorCode());
+      assertEquals("App ID \"test-android-app-id\": Test error", e.getMessage());
+      assertNotNull(e.getCause());
+      assertNotNull(e.getHttpResponse());
+    }
+  }
+
+  @Test
+  public void getAndroidAppParseError() {
+    firstRpcResponse.setContent("not json");
+    serviceImpl = initServiceImpl(firstRpcResponse, interceptor);
+
+    try {
+      serviceImpl.getAndroidApp(ANDROID_APP_ID);
+      fail("No exception thrown for HTTP error");
+    } catch (FirebaseProjectManagementException e) {
+      assertEquals(ErrorCode.UNKNOWN, e.getErrorCode());
+      assertTrue(e.getMessage().startsWith(
+          "App ID \"test-android-app-id\": Error while parsing HTTP response"));
+      assertNotNull(e.getCause());
+      assertNotNull(e.getHttpResponse());
+    }
+  }
+
+  @Test
+  public void getAndroidAppTransportError() {
+    FirebaseProjectManagementServiceImpl serviceImpl = initServiceImplWithFaultyTransport();
+
+    try {
+      serviceImpl.getAndroidApp(ANDROID_APP_ID);
+      fail("No exception thrown for HTTP error");
+    } catch (FirebaseProjectManagementException e) {
+      assertEquals(ErrorCode.UNKNOWN, e.getErrorCode());
+      assertEquals(
+          "App ID \"test-android-app-id\": Unknown error while making a remote service call: "
+              + "transport error",
+          e.getMessage());
+      assertNotNull(e.getCause());
+      assertNull(e.getHttpResponse());
     }
   }
 
@@ -751,11 +874,10 @@ public class FirebaseProjectManagementServiceImplTest {
         "%s/v1beta1/projects/-/androidApps/%s?update_mask=display_name",
         FIREBASE_PROJECT_MANAGEMENT_URL,
         ANDROID_APP_ID);
-    checkRequestHeader(expectedUrl, HttpMethod.POST);
+    checkRequestHeader(expectedUrl, HttpMethod.PATCH);
     ImmutableMap<String, String> payload =
         ImmutableMap.<String, String>builder().put("display_name", DISPLAY_NAME).build();
     checkRequestPayload(payload);
-    checkPatchRequest();
   }
 
   @Test
@@ -769,11 +891,10 @@ public class FirebaseProjectManagementServiceImplTest {
         "%s/v1beta1/projects/-/androidApps/%s?update_mask=display_name",
         FIREBASE_PROJECT_MANAGEMENT_URL,
         ANDROID_APP_ID);
-    checkRequestHeader(expectedUrl, HttpMethod.POST);
+    checkRequestHeader(expectedUrl, HttpMethod.PATCH);
     ImmutableMap<String, String> payload =
         ImmutableMap.<String, String>builder().put("display_name", DISPLAY_NAME).build();
     checkRequestPayload(payload);
-    checkPatchRequest();
   }
 
   @Test
@@ -918,17 +1039,37 @@ public class FirebaseProjectManagementServiceImplTest {
   }
 
   @Test
+  <<<<<<< redacted-passwords
   public void testAuthAndRetriesSupport() {
     FirebaseOptions options = new FirebaseOptions.Builder()
         .setCredentials(new MockGoogleCredentials("test-token"))
         .setProjectId(PROJECT_ID)
+  =======
+  public void testAuthAndRetriesSupport() throws Exception {
+    List<MockLowLevelHttpResponse> mockResponses = ImmutableList.of(
+        new MockLowLevelHttpResponse().setContent("{}"));
+    MockHttpTransport transport = new MultiRequestMockHttpTransport(mockResponses);
+    FirebaseOptions options = FirebaseOptions.builder()
+        .setCredentials(new MockGoogleCredentials("test-token"))
+        .setProjectId(PROJECT_ID)
+        .setHttpTransport(transport)
+  >>>>>>> master
         .build();
     FirebaseApp app = FirebaseApp.initializeApp(options);
 
     FirebaseProjectManagementServiceImpl serviceImpl =
         new FirebaseProjectManagementServiceImpl(app);
+  <<<<<<< redacted-passwords
 
     TestApiClientUtils.assertAuthAndRetrySupport(serviceImpl.getRequestFactory());
+  =======
+    serviceImpl.setInterceptor(interceptor);
+
+    serviceImpl.deleteShaCertificate(SHA1_RESOURCE_NAME);
+
+    assertEquals(1, interceptor.getNumberOfResponses());
+    TestApiClientUtils.assertAuthAndRetrySupport(interceptor.getResponse(0).getRequest());
+  >>>>>>> master
   }
 
   @Test
@@ -937,7 +1078,11 @@ public class FirebaseProjectManagementServiceImplTest {
         firstRpcResponse.setStatusCode(503).setContent("{}"),
         new MockLowLevelHttpResponse().setContent("{}"));
     MockHttpTransport transport = new MultiRequestMockHttpTransport(mockResponses);
+  <<<<<<< redacted-passwords
     FirebaseOptions options = new FirebaseOptions.Builder()
+  =======
+    FirebaseOptions options = FirebaseOptions.builder()
+  >>>>>>> master
         .setCredentials(new MockGoogleCredentials("test-token"))
         .setProjectId(PROJECT_ID)
         .setHttpTransport(transport)
@@ -965,7 +1110,7 @@ public class FirebaseProjectManagementServiceImplTest {
       List<MockLowLevelHttpResponse> mockResponses,
       MultiRequestTestResponseInterceptor interceptor) {
     MockHttpTransport transport = new MultiRequestMockHttpTransport(mockResponses);
-    FirebaseOptions options = new FirebaseOptions.Builder()
+    FirebaseOptions options = FirebaseOptions.builder()
         .setCredentials(new MockGoogleCredentials("test-token"))
         .setProjectId(PROJECT_ID)
         .setHttpTransport(transport)
@@ -976,6 +1121,16 @@ public class FirebaseProjectManagementServiceImplTest {
         app, new MockSleeper(), new MockScheduler(), requestFactory);
     serviceImpl.setInterceptor(interceptor);
     return serviceImpl;
+  }
+
+  private static FirebaseProjectManagementServiceImpl initServiceImplWithFaultyTransport() {
+    FirebaseOptions options = FirebaseOptions.builder()
+        .setCredentials(new MockGoogleCredentials("test-token"))
+        .setProjectId(PROJECT_ID)
+        .setHttpTransport(TestUtils.createFaultyHttpTransport())
+        .build();
+    FirebaseApp app = FirebaseApp.initializeApp(options);
+    return new FirebaseProjectManagementServiceImpl(app);
   }
 
   private void checkRequestHeader(String expectedUrl, HttpMethod httpMethod) {
@@ -990,6 +1145,7 @@ public class FirebaseProjectManagementServiceImplTest {
     assertEquals(httpMethod.name(), request.getRequestMethod());
     assertEquals(expectedUrl, request.getUrl().toString());
     assertEquals("Bearer test-token", request.getHeaders().getAuthorization());
+    assertEquals(CLIENT_VERSION, request.getHeaders().get("X-Client-Version"));
   }
 
   private void checkRequestPayload(Map<String, String> expected) throws IOException {
@@ -1001,27 +1157,17 @@ public class FirebaseProjectManagementServiceImplTest {
   private void checkRequestPayload(int index, Map<String, String> expected) throws IOException {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     interceptor.getResponse(index).getRequest().getContent().writeTo(out);
-    JsonParser parser = Utils.getDefaultJsonFactory().createJsonParser(out.toString());
+    JsonParser parser = ApiClientUtils.getDefaultJsonFactory().createJsonParser(out.toString());
     Map<String, String> parsed = new HashMap<>();
     parser.parseAndClose(parsed);
     assertEquals(expected, parsed);
   }
 
-  private void checkPatchRequest() {
-    assertEquals(
-        "The number of HttpResponses is not equal to 1.", 1, interceptor.getNumberOfResponses());
-    checkPatchRequest(0);
-  }
-
-  private void checkPatchRequest(int index) {
-    assertTrue(interceptor.getResponse(index).getRequest().getHeaders()
-        .getHeaderStringValues(PATCH_OVERRIDE_KEY).contains(PATCH_OVERRIDE_VALUE));
-  }
-
   private enum HttpMethod {
     GET,
     POST,
-    DELETE
+    DELETE,
+    PATCH,
   }
 
   /**

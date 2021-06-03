@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Google Inc.
+ * Copyright 2017 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 package com.google.firebase.auth;
 
+  <<<<<<< redacted-passwords
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -24,19 +25,14 @@ import com.google.api.client.util.Clock;
 import com.google.api.core.ApiFuture;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
+  =======
+  >>>>>>> master
 import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.ImplFirebaseTrampolines;
-import com.google.firebase.auth.FirebaseUserManager.EmailLinkType;
-import com.google.firebase.auth.FirebaseUserManager.UserImportRequest;
-import com.google.firebase.auth.ListUsersPage.DefaultUserSource;
-import com.google.firebase.auth.ListUsersPage.PageFactory;
-import com.google.firebase.auth.UserRecord.CreateRequest;
-import com.google.firebase.auth.UserRecord.UpdateRequest;
-import com.google.firebase.auth.internal.FirebaseTokenFactory;
-import com.google.firebase.internal.CallableOperation;
+import com.google.firebase.auth.multitenancy.TenantManager;
 import com.google.firebase.internal.FirebaseService;
+  <<<<<<< redacted-passwords
 import com.google.firebase.internal.NonNull;
 import com.google.firebase.internal.Nullable;
 
@@ -46,6 +42,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+  =======
+  >>>>>>> master
 
 /**
  * This class is the entry point for all server-side Firebase Authentication actions.
@@ -55,21 +53,24 @@ import java.util.Set;
  * custom tokens for use by client-side code, verifying Firebase ID Tokens received from clients, or
  * creating new FirebaseApp instances that are scoped to a particular authentication UID.
  */
-public class FirebaseAuth {
+public final class FirebaseAuth extends AbstractFirebaseAuth {
 
   private static final String SERVICE_ID = FirebaseAuth.class.getName();
 
+  <<<<<<< redacted-passwords
   private static final String ERROR_CUSTOM_TOKEN = "ERROR_CUSTOM_TOKEN";
 
   private final Object lock = new Object();
+  =======
+  private final Supplier<TenantManager> tenantManager;
+  >>>>>>> master
 
-  private final FirebaseApp firebaseApp;
-  private final Supplier<FirebaseTokenFactory> tokenFactory;
-  private final Supplier<? extends FirebaseTokenVerifier> idTokenVerifier;
-  private final Supplier<? extends FirebaseTokenVerifier> cookieVerifier;
-  private final Supplier<? extends FirebaseUserManager> userManager;
-  private final JsonFactory jsonFactory;
+  private FirebaseAuth(final Builder builder) {
+    super(builder);
+    tenantManager = threadSafeMemoize(builder.tenantManager);
+  }
 
+  <<<<<<< redacted-passwords
   private FirebaseAuth(Builder builder) {
     this.firebaseApp = checkNotNull(builder.firebaseApp);
     this.tokenFactory = threadSafeMemoize(builder.tokenFactory);
@@ -77,6 +78,10 @@ public class FirebaseAuth {
     this.cookieVerifier = threadSafeMemoize(builder.cookieVerifier);
     this.userManager = threadSafeMemoize(builder.userManager);
     this.jsonFactory = firebaseApp.getOptions().getJsonFactory();
+  =======
+  public TenantManager getTenantManager() {
+    return tenantManager.get();
+  >>>>>>> master
   }
 
   /**
@@ -95,14 +100,15 @@ public class FirebaseAuth {
    * @return A FirebaseAuth instance.
    */
   public static synchronized FirebaseAuth getInstance(FirebaseApp app) {
-    FirebaseAuthService service = ImplFirebaseTrampolines.getService(app, SERVICE_ID,
-        FirebaseAuthService.class);
+    FirebaseAuthService service =
+        ImplFirebaseTrampolines.getService(app, SERVICE_ID, FirebaseAuthService.class);
     if (service == null) {
       service = ImplFirebaseTrampolines.addService(app, new FirebaseAuthService(app));
     }
     return service.getInstance();
   }
 
+  <<<<<<< redacted-passwords
   /**
    * Creates a new Firebase session cookie from the given ID token and options. The returned JWT
    * can be set as a server-side session cookie with a custom cookie policy.
@@ -1232,25 +1238,14 @@ public class FirebaseAuth {
     });
   }
 
+  =======
+  >>>>>>> master
   private static FirebaseAuth fromApp(final FirebaseApp app) {
-    return FirebaseAuth.builder()
-        .setFirebaseApp(app)
-        .setTokenFactory(new Supplier<FirebaseTokenFactory>() {
+    return populateBuilderFromApp(builder(), app, null)
+        .setTenantManager(new Supplier<TenantManager>() {
           @Override
-          public FirebaseTokenFactory get() {
-            return FirebaseTokenUtils.createTokenFactory(app, Clock.SYSTEM);
-          }
-        })
-        .setIdTokenVerifier(new Supplier<FirebaseTokenVerifier>() {
-          @Override
-          public FirebaseTokenVerifier get() {
-            return FirebaseTokenUtils.createIdTokenVerifier(app, Clock.SYSTEM);
-          }
-        })
-        .setCookieVerifier(new Supplier<FirebaseTokenVerifier>() {
-          @Override
-          public FirebaseTokenVerifier get() {
-            return FirebaseTokenUtils.createSessionCookieVerifier(app, Clock.SYSTEM);
+          public TenantManager get() {
+            return new TenantManager(app);
           }
         })
         .setUserManager(new Supplier<FirebaseUserManager>() {
@@ -1262,40 +1257,43 @@ public class FirebaseAuth {
         .build();
   }
 
-  @VisibleForTesting
+  private static class FirebaseAuthService extends FirebaseService<FirebaseAuth> {
+
+    FirebaseAuthService(FirebaseApp app) {
+      super(SERVICE_ID, FirebaseAuth.fromApp(app));
+    }
+  }
+
   static Builder builder() {
     return new Builder();
   }
 
+  <<<<<<< redacted-passwords
   static class Builder {
     private FirebaseApp firebaseApp;
     private Supplier<FirebaseTokenFactory> tokenFactory;
     private Supplier<? extends FirebaseTokenVerifier> idTokenVerifier;
     private Supplier<? extends FirebaseTokenVerifier> cookieVerifier;
     private Supplier<FirebaseUserManager> userManager;
+  =======
+  static class Builder extends AbstractFirebaseAuth.Builder<Builder> {
+  >>>>>>> master
+
+    private Supplier<TenantManager> tenantManager;
 
     private Builder() { }
 
-    Builder setFirebaseApp(FirebaseApp firebaseApp) {
-      this.firebaseApp = firebaseApp;
+    @Override
+    protected Builder getThis() {
       return this;
     }
 
-    Builder setTokenFactory(Supplier<FirebaseTokenFactory> tokenFactory) {
-      this.tokenFactory = tokenFactory;
+    public Builder setTenantManager(Supplier<TenantManager> tenantManager) {
+      this.tenantManager = tenantManager;
       return this;
     }
 
-    Builder setIdTokenVerifier(Supplier<? extends FirebaseTokenVerifier> idTokenVerifier) {
-      this.idTokenVerifier = idTokenVerifier;
-      return this;
-    }
-
-    Builder setCookieVerifier(Supplier<? extends FirebaseTokenVerifier> cookieVerifier) {
-      this.cookieVerifier = cookieVerifier;
-      return this;
-    }
-
+  <<<<<<< redacted-passwords
     Builder setUserManager(Supplier<FirebaseUserManager> userManager) {
       this.userManager = userManager;
       return this;
@@ -1312,4 +1310,10 @@ public class FirebaseAuth {
       super(SERVICE_ID, FirebaseAuth.fromApp(app));
     }
   }
+  =======
+    public FirebaseAuth build() {
+      return new FirebaseAuth(this);
+    }
+  }
+  >>>>>>> master
 }

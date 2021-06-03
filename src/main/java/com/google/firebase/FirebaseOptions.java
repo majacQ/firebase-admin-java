@@ -19,7 +19,6 @@ package com.google.firebase;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.api.client.googleapis.util.Utils;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.util.Key;
@@ -29,6 +28,7 @@ import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
+import com.google.firebase.internal.ApiClientUtils;
 import com.google.firebase.internal.FirebaseThreadManagers;
 import com.google.firebase.internal.NonNull;
 import com.google.firebase.internal.Nullable;
@@ -224,18 +224,32 @@ public final class FirebaseOptions {
   }
 
   /**
+   * Creates a new {@code Builder} from the options object.
+   *
+   * <p>The new builder is not backed by this object's values; that is, changes made to the new
+   * builder don't change the values of the origin object.
+   */
+  public Builder toBuilder() {
+    return new Builder(this);
+  }
+
+  /**
+  <<<<<<< v7
    * Builder for constructing {@link FirebaseOptions}. 
+  =======
+   * Builder for constructing {@link FirebaseOptions}.
+  >>>>>>> master
    */
   public static final class Builder {
     @Key("databaseAuthVariableOverride")
     private Map<String, Object> databaseAuthVariableOverride = new HashMap<>();
-    
+
     @Key("databaseUrl")
     private String databaseUrl;
 
     @Key("projectId")
     private String projectId;
-    
+
     @Key("storageBucket")
     private String storageBucket;
 
@@ -243,13 +257,18 @@ public final class FirebaseOptions {
     private String serviceAccountId;
     private Supplier<GoogleCredentials> credentialsSupplier;
     private FirestoreOptions firestoreOptions;
-    private HttpTransport httpTransport = Utils.getDefaultTransport();
-    private JsonFactory jsonFactory = Utils.getDefaultJsonFactory();
+    private HttpTransport httpTransport = ApiClientUtils.getDefaultTransport();
+    private JsonFactory jsonFactory = ApiClientUtils.getDefaultJsonFactory();
     private ThreadManager threadManager = FirebaseThreadManagers.DEFAULT_THREAD_MANAGER;
     private int connectTimeout;
     private int readTimeout;
 
-    /** Constructs an empty builder. */
+    /**
+     * Constructs an empty builder.
+     *
+     * @deprecated Use {@link FirebaseOptions#builder()} instead.
+     */
+    @Deprecated
     public Builder() {}
 
     /**
@@ -257,7 +276,10 @@ public final class FirebaseOptions {
      *
      * <p>The new builder is not backed by this object's values, that is changes made to the new
      * builder don't change the values of the origin object.
+     *
+     * @deprecated Use {@link FirebaseOptions#toBuilder()} instead.
      */
+    @Deprecated
     public Builder(FirebaseOptions options) {
       databaseUrl = options.databaseUrl;
       storageBucket = options.storageBucket;

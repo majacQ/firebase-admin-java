@@ -23,18 +23,25 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.google.api.client.http.HttpMethods;
 import com.google.api.client.http.HttpRequest;
 import com.google.api.client.http.HttpResponseException;
+import com.google.api.client.http.HttpTransport;
 import com.google.api.client.testing.http.MockHttpTransport;
 import com.google.api.client.testing.http.MockLowLevelHttpResponse;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.firebase.ErrorCode;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
+import com.google.firebase.IncomingHttpResponse;
+import com.google.firebase.OutgoingHttpRequest;
 import com.google.firebase.TestOnlyImplFirebaseTrampolines;
 import com.google.firebase.auth.MockGoogleCredentials;
 import com.google.firebase.testing.GenericFunction;
 import com.google.firebase.testing.TestResponseInterceptor;
+import com.google.firebase.testing.TestUtils;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -43,11 +50,40 @@ import org.junit.Test;
 
 public class FirebaseInstanceIdTest {
 
+  <<<<<<< redacted-passwords
   private static final FirebaseOptions APP_OPTIONS = new FirebaseOptions.Builder()
+  =======
+  <<<<<<< v7
+  =======
+  private static final FirebaseOptions APP_OPTIONS = FirebaseOptions.builder()
+  >>>>>>> master
       .setCredentials(new MockGoogleCredentials("test-token"))
       .setProjectId("test-project")
       .build();
 
+  <<<<<<< redacted-passwords
+  =======
+  >>>>>>> master
+  private static final Map<Integer, String> ERROR_MESSAGES = ImmutableMap.of(
+      404, "Instance ID \"test-iid\": Failed to find the instance ID.",
+      409, "Instance ID \"test-iid\": Already deleted.",
+      429, "Instance ID \"test-iid\": Request throttled out by the backend server.",
+      500, "Instance ID \"test-iid\": Internal server error.",
+      501, "Unexpected HTTP response with status: 501\ntest error"
+  );
+
+  private static final Map<Integer, ErrorCode> ERROR_CODES = ImmutableMap.of(
+      404, ErrorCode.NOT_FOUND,
+      409, ErrorCode.CONFLICT,
+      429, ErrorCode.RESOURCE_EXHAUSTED,
+      500, ErrorCode.INTERNAL,
+      501, ErrorCode.UNKNOWN
+  );
+
+  private static final String TEST_URL =
+      "https://console.firebase.google.com/v1/project/test-project/instanceId/test-iid";
+
+  >>>>>>> master
   @After
   public void tearDown() {
     TestOnlyImplFirebaseTrampolines.clearInstancesForTest();
@@ -55,7 +91,7 @@ public class FirebaseInstanceIdTest {
 
   @Test
   public void testNoProjectId() {
-    FirebaseOptions options = new FirebaseOptions.Builder()
+    FirebaseOptions options = FirebaseOptions.builder()
         .setCredentials(new MockGoogleCredentials("test-token"))
         .build();
     FirebaseApp.initializeApp(options);
@@ -85,7 +121,19 @@ public class FirebaseInstanceIdTest {
 
   @Test
   public void testInvalidInstanceId() {
+  <<<<<<< redacted-passwords
     FirebaseApp.initializeApp(APP_OPTIONS);
+  =======
+  <<<<<<< v7
+    FirebaseOptions options = FirebaseOptions.builder()
+        .setCredentials(new MockGoogleCredentials("test-token"))
+        .setProjectId("test-project")
+        .build();
+    FirebaseApp.initializeApp(options);
+  =======
+    FirebaseApp.initializeApp(APP_OPTIONS);
+  >>>>>>> master
+  >>>>>>> master
 
     FirebaseInstanceId instanceId = FirebaseInstanceId.getInstance();
     TestResponseInterceptor interceptor = new TestResponseInterceptor();
@@ -113,7 +161,17 @@ public class FirebaseInstanceIdTest {
     MockHttpTransport transport = new MockHttpTransport.Builder()
         .setLowLevelHttpResponse(response)
         .build();
+  <<<<<<< redacted-passwords
     FirebaseOptions options = new FirebaseOptions.Builder(APP_OPTIONS)
+  =======
+  <<<<<<< v7
+    FirebaseOptions options = FirebaseOptions.builder()
+        .setCredentials(new MockGoogleCredentials("test-token"))
+        .setProjectId("test-project")
+  =======
+    FirebaseOptions options = APP_OPTIONS.toBuilder()
+  >>>>>>> master
+  >>>>>>> master
         .setHttpTransport(transport)
         .build();
     FirebaseApp app = FirebaseApp.initializeApp(options);
@@ -138,7 +196,6 @@ public class FirebaseInstanceIdTest {
         }
     );
 
-    String url = "https://console.firebase.google.com/v1/project/test-project/instanceId/test-iid";
     for (GenericFunction<Void> fn : functions) {
       TestResponseInterceptor interceptor = new TestResponseInterceptor();
       instanceId.setInterceptor(interceptor);
@@ -146,21 +203,30 @@ public class FirebaseInstanceIdTest {
 
       assertNotNull(interceptor.getResponse());
       HttpRequest request = interceptor.getResponse().getRequest();
-      assertEquals("DELETE", request.getRequestMethod());
-      assertEquals(url, request.getUrl().toString());
+      assertEquals(HttpMethods.DELETE, request.getRequestMethod());
+      assertEquals(TEST_URL, request.getUrl().toString());
       assertEquals("Bearer test-token", request.getHeaders().getAuthorization());
     }
   }
 
   @Test
   public void testDeleteInstanceIdError() throws Exception {
-    Map<Integer, String> errors = ImmutableMap.of(
-        404, "Instance ID \"test-iid\": Failed to find the instance ID.",
-        429, "Instance ID \"test-iid\": Request throttled out by the backend server.",
-        500, "Instance ID \"test-iid\": Internal server error.",
-        501, "Error while invoking instance ID service."
-    );
+    final MockLowLevelHttpResponse response = new MockLowLevelHttpResponse();
+    MockHttpTransport transport = new MockHttpTransport.Builder()
+        .setLowLevelHttpResponse(response)
+        .build();
+  <<<<<<< v7
+    FirebaseOptions options = FirebaseOptions.builder()
+        .setCredentials(new MockGoogleCredentials("test-token"))
+        .setProjectId("test-project")
+  =======
+    FirebaseOptions options = APP_OPTIONS.toBuilder()
+  >>>>>>> master
+        .setHttpTransport(transport)
+        .build();
+    FirebaseApp app = FirebaseApp.initializeApp(options);
 
+  <<<<<<< redacted-passwords
     String url = "https://console.firebase.google.com/v1/project/test-project/instanceId/test-iid";
     for (Map.Entry<Integer, String> entry : errors.entrySet()) {
       MockLowLevelHttpResponse response = new MockLowLevelHttpResponse()
@@ -185,13 +251,96 @@ public class FirebaseInstanceIdTest {
         assertEquals(entry.getValue(), e.getCause().getMessage());
         assertTrue(e.getCause().getCause() instanceof HttpResponseException);
       }
+  =======
+    // Disable retries by passing a regular HttpRequestFactory.
+    FirebaseInstanceId instanceId = new FirebaseInstanceId(app, transport.createRequestFactory());
+    TestResponseInterceptor interceptor = new TestResponseInterceptor();
+    instanceId.setInterceptor(interceptor);
+  >>>>>>> master
 
-      assertNotNull(interceptor.getResponse());
-      HttpRequest request = interceptor.getResponse().getRequest();
-      assertEquals("DELETE", request.getRequestMethod());
-      assertEquals(url, request.getUrl().toString());
-      assertEquals("Bearer test-token", request.getHeaders().getAuthorization());
+    try {
+      for (int statusCode : ERROR_CODES.keySet()) {
+        response.setStatusCode(statusCode).setContent("test error");
+
+        try {
+          instanceId.deleteInstanceIdAsync("test-iid").get();
+          fail("No error thrown for HTTP error");
+        } catch (ExecutionException e) {
+          assertTrue(e.getCause() instanceof FirebaseInstanceIdException);
+          checkFirebaseInstanceIdException((FirebaseInstanceIdException) e.getCause(), statusCode);
+        }
+
+        assertNotNull(interceptor.getResponse());
+        HttpRequest request = interceptor.getResponse().getRequest();
+        assertEquals(HttpMethods.DELETE, request.getRequestMethod());
+        assertEquals(TEST_URL, request.getUrl().toString());
+      }
+    } finally {
       app.delete();
     }
+  }
+
+  @Test
+  public void testDeleteInstanceIdTransportError() throws Exception {
+    HttpTransport transport = TestUtils.createFaultyHttpTransport();
+    FirebaseOptions options = FirebaseOptions.builder()
+        .setCredentials(new MockGoogleCredentials("test-token"))
+        .setProjectId("test-project")
+        .setHttpTransport(transport)
+        .build();
+    FirebaseApp app = FirebaseApp.initializeApp(options);
+    // Disable retries by passing a regular HttpRequestFactory.
+    FirebaseInstanceId instanceId = new FirebaseInstanceId(app, transport.createRequestFactory());
+
+    try {
+      instanceId.deleteInstanceIdAsync("test-iid").get();
+      fail("No error thrown for HTTP error");
+    } catch (ExecutionException e) {
+      assertTrue(e.getCause() instanceof FirebaseInstanceIdException);
+      FirebaseInstanceIdException error = (FirebaseInstanceIdException) e.getCause();
+      assertEquals(ErrorCode.UNKNOWN, error.getErrorCode());
+      assertEquals(
+          "Unknown error while making a remote service call: transport error",
+          error.getMessage());
+      assertTrue(error.getCause() instanceof IOException);
+      assertNull(error.getHttpResponse());
+    }
+  }
+
+  @Test
+  public void testDeleteInstanceIdInvalidJsonIgnored() throws Exception {
+    final MockLowLevelHttpResponse response = new MockLowLevelHttpResponse();
+    MockHttpTransport transport = new MockHttpTransport.Builder()
+        .setLowLevelHttpResponse(response)
+        .build();
+    FirebaseOptions options = FirebaseOptions.builder()
+        .setCredentials(new MockGoogleCredentials("test-token"))
+        .setProjectId("test-project")
+        .setHttpTransport(transport)
+        .build();
+    FirebaseApp app = FirebaseApp.initializeApp(options);
+
+    // Disable retries by passing a regular HttpRequestFactory.
+    FirebaseInstanceId instanceId = new FirebaseInstanceId(app, transport.createRequestFactory());
+    TestResponseInterceptor interceptor = new TestResponseInterceptor();
+    instanceId.setInterceptor(interceptor);
+    response.setContent("not json");
+
+    instanceId.deleteInstanceIdAsync("test-iid").get();
+
+    assertNotNull(interceptor.getResponse());
+  }
+
+  private void checkFirebaseInstanceIdException(FirebaseInstanceIdException error, int statusCode) {
+    assertEquals(ERROR_CODES.get(statusCode), error.getErrorCode());
+    assertEquals(ERROR_MESSAGES.get(statusCode), error.getMessage());
+    assertTrue(error.getCause() instanceof HttpResponseException);
+
+    IncomingHttpResponse httpResponse = error.getHttpResponse();
+    assertNotNull(httpResponse);
+    assertEquals(statusCode, httpResponse.getStatusCode());
+    OutgoingHttpRequest request = httpResponse.getRequest();
+    assertEquals(HttpMethods.DELETE, request.getMethod());
+    assertEquals(TEST_URL, request.getUrl());
   }
 }

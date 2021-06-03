@@ -173,7 +173,7 @@ public class FirebaseDatabase {
     return db;
   }
 
-  /** 
+  /**
    * @return The version for this build of the Firebase Database client
    */
   public static String getSdkVersion() {

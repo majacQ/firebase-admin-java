@@ -31,8 +31,13 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.firebase.ErrorCode;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.ImplFirebaseTrampolines;
+  <<<<<<< redacted-passwords
+  =======
+import com.google.firebase.IncomingHttpResponse;
+  >>>>>>> master
 import com.google.firebase.internal.ApiClientUtils;
 import com.google.firebase.internal.CallableOperation;
 import java.nio.charset.StandardCharsets;
@@ -78,7 +83,10 @@ class FirebaseProjectManagementServiceImpl implements AndroidAppService, IosAppS
     this.app = checkNotNull(app);
     this.sleeper = checkNotNull(sleeper);
     this.scheduler = checkNotNull(scheduler);
+  <<<<<<< redacted-passwords
     this.requestFactory = checkNotNull(requestFactory);
+  =======
+  >>>>>>> master
     this.httpHelper = new HttpHelper(app.getOptions().getJsonFactory(), requestFactory);
   }
 
@@ -87,11 +95,14 @@ class FirebaseProjectManagementServiceImpl implements AndroidAppService, IosAppS
     return requestFactory;
   }
 
+  <<<<<<< redacted-passwords
   @VisibleForTesting
   void setInterceptor(HttpResponseInterceptor interceptor) {
     httpHelper.setInterceptor(interceptor);
   }
 
+  =======
+  >>>>>>> master
   /* getAndroidApp */
 
   @Override
@@ -310,14 +321,14 @@ class FirebaseProjectManagementServiceImpl implements AndroidAppService, IosAppS
           payloadBuilder.put("display_name", displayName);
         }
         OperationResponse operationResponseInstance = new OperationResponse();
-        httpHelper.makePostRequest(
+        IncomingHttpResponse response = httpHelper.makePostRequest(
             url, payloadBuilder.build(), operationResponseInstance, projectId, "Project ID");
         if (Strings.isNullOrEmpty(operationResponseInstance.name)) {
-          throw HttpHelper.createFirebaseProjectManagementException(
+          String message = buildMessage(
               namespace,
               "Bundle ID",
-              "Unable to create App: server returned null operation name.",
-              /* cause= */ null);
+              "Unable to create App: server returned null operation name.");
+          throw new FirebaseProjectManagementException(ErrorCode.INTERNAL, message, response);
         }
         return operationResponseInstance.name;
       }
@@ -333,7 +344,8 @@ class FirebaseProjectManagementServiceImpl implements AndroidAppService, IosAppS
               * Math.pow(POLL_EXPONENTIAL_BACKOFF_FACTOR, currentAttempt));
       sleepOrThrow(projectId, delayMillis);
       OperationResponse operationResponseInstance = new OperationResponse();
-      httpHelper.makeGetRequest(url, operationResponseInstance, projectId, "Project ID");
+      IncomingHttpResponse response = httpHelper.makeGetRequest(
+          url, operationResponseInstance, projectId, "Project ID");
       if (!operationResponseInstance.done) {
         continue;
       }
@@ -341,19 +353,20 @@ class FirebaseProjectManagementServiceImpl implements AndroidAppService, IosAppS
       // or 'error' is set.
       if (operationResponseInstance.response == null
           || Strings.isNullOrEmpty(operationResponseInstance.response.appId)) {
-        throw HttpHelper.createFirebaseProjectManagementException(
+        String message = buildMessage(
             projectId,
             "Project ID",
-            "Unable to create App: internal server error.",
-            /* cause= */ null);
+            "Unable to create App: internal server error.");
+        throw new FirebaseProjectManagementException(ErrorCode.INTERNAL, message, response);
       }
       return operationResponseInstance.response.appId;
     }
-    throw HttpHelper.createFirebaseProjectManagementException(
+
+    String message = buildMessage(
         projectId,
         "Project ID",
-        "Unable to create App: deadline exceeded.",
-        /* cause= */ null);
+        "Unable to create App: deadline exceeded.");
+    throw new FirebaseProjectManagementException(ErrorCode.DEADLINE_EXCEEDED, message, null);
   }
 
   /**
@@ -412,19 +425,22 @@ class FirebaseProjectManagementServiceImpl implements AndroidAppService, IosAppS
     public void run() {
       String url = String.format("%s/v1/%s", FIREBASE_PROJECT_MANAGEMENT_URL, operationName);
       OperationResponse operationResponseInstance = new OperationResponse();
+      IncomingHttpResponse httpResponse;
       try {
-        httpHelper.makeGetRequest(url, operationResponseInstance, projectId, "Project ID");
+        httpResponse = httpHelper.makeGetRequest(
+            url, operationResponseInstance, projectId, "Project ID");
       } catch (FirebaseProjectManagementException e) {
         settableFuture.setException(e);
         return;
       }
       if (!operationResponseInstance.done) {
         if (numberOfPreviousPolls + 1 >= MAXIMUM_POLLING_ATTEMPTS) {
-          settableFuture.setException(HttpHelper.createFirebaseProjectManagementException(
-              projectId,
+          String message = buildMessage(projectId,
               "Project ID",
-              "Unable to create App: deadline exceeded.",
-              /* cause= */ null));
+              "Unable to create App: deadline exceeded.");
+          FirebaseProjectManagementException exception = new FirebaseProjectManagementException(
+              ErrorCode.DEADLINE_EXCEEDED, message, httpResponse);
+          settableFuture.setException(exception);
         } else {
           long delayMillis = (long) (
               POLL_BASE_WAIT_TIME_MILLIS
@@ -443,11 +459,12 @@ class FirebaseProjectManagementServiceImpl implements AndroidAppService, IosAppS
       // or 'error' is set.
       if (operationResponseInstance.response == null
           || Strings.isNullOrEmpty(operationResponseInstance.response.appId)) {
-        settableFuture.setException(HttpHelper.createFirebaseProjectManagementException(
-            projectId,
+        String message = buildMessage(projectId,
             "Project ID",
-            "Unable to create App: internal server error.",
-            /* cause= */ null));
+            "Unable to create App: internal server error.");
+        FirebaseProjectManagementException exception = new FirebaseProjectManagementException(
+            ErrorCode.INTERNAL, message, httpResponse);
+        settableFuture.setException(exception);
       } else {
         settableFuture.set(operationResponseInstance.response.appId);
       }
@@ -757,12 +774,15 @@ class FirebaseProjectManagementServiceImpl implements AndroidAppService, IosAppS
     try {
       sleeper.sleep(delayMillis);
     } catch (InterruptedException e) {
-      throw HttpHelper.createFirebaseProjectManagementException(
-          projectId,
+      String message = buildMessage(projectId,
           "Project ID",
-          "Unable to create App: exponential backoff interrupted.",
-          /* cause= */ null);
+          "Unable to create App: exponential backoff interrupted.");
+      throw new FirebaseProjectManagementException(ErrorCode.ABORTED, message, null);
     }
+  }
+
+  private String buildMessage(String resourceId, String resourceIdName, String description) {
+    return String.format("%s \"%s\": %s", resourceIdName, resourceId, description);
   }
 
   /* Helper types. */

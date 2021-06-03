@@ -19,7 +19,11 @@
 
     <groupId>com.google.firebase</groupId>
     <artifactId>firebase-admin</artifactId>
+  <<<<<<< redacted-passwords
     <version>6.14.0</version>
+  =======
+    <version>7.3.0</version>
+  >>>>>>> master
     <packaging>jar</packaging>
 
     <name>firebase-admin</name>
@@ -59,7 +63,11 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <skipUTs>${skipTests}</skipUTs>
+  <<<<<<< redacted-passwords
         <netty.version>4.1.50.Final</netty.version>
+  =======
+        <netty.version>4.1.65.Final</netty.version>
+  >>>>>>> master
     </properties>
 
     <scm>
@@ -99,7 +107,11 @@
                     <plugin>
                         <!-- Generate API docs using Doclava for the developer site -->
                         <artifactId>maven-javadoc-plugin</artifactId>
+  <<<<<<< redacted-passwords
                         <version>2.10.4</version>
+  =======
+                        <version>3.3.0</version>
+  >>>>>>> master
                         <executions>
                             <execution>
                                 <phase>site</phase>
@@ -140,7 +152,7 @@
                     <plugin>
                         <!-- Update relative paths in generated API docs -->
                         <artifactId>maven-antrun-plugin</artifactId>
-                        <version>1.7</version>
+                        <version>3.0.0</version>
                         <executions>
                             <execution>
                                 <phase>site</phase>
@@ -166,7 +178,7 @@
                 <plugins>
                     <plugin>
                         <artifactId>maven-gpg-plugin</artifactId>
-                        <version>1.5</version>
+                        <version>3.0.1</version>
                         <executions>
                             <execution>
                                 <id>sign-artifacts</id>
@@ -198,7 +210,7 @@
                     <plugin>
                         <groupId>org.jacoco</groupId>
                         <artifactId>jacoco-maven-plugin</artifactId>
-                        <version>0.7.9</version>
+                        <version>0.8.7</version>
                         <executions>
                             <execution>
                                 <id>pre-unit-test</id>
@@ -224,7 +236,7 @@
                     <plugin>
                         <groupId>org.codehaus.mojo</groupId>
                         <artifactId>exec-maven-plugin</artifactId>
-                        <version>1.6.0</version>
+                        <version>3.0.0</version>
                         <executions>
                             <execution>
                                 <phase>test</phase>
@@ -257,7 +269,7 @@
             <!-- Validate Phase -->
             <plugin>
                 <artifactId>maven-checkstyle-plugin</artifactId>
-                <version>2.17</version>
+                <version>3.1.2</version>
                 <executions>
                     <execution>
                         <id>validate</id>
@@ -279,7 +291,7 @@
             <!-- Compile Phase -->
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.6.1</version>
+                <version>3.8.1</version>
                 <configuration>
                     <source>1.7</source>
                     <target>1.7</target>
@@ -289,7 +301,7 @@
             <!-- Test Phase -->
             <plugin>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>2.19.1</version>
+                <version>2.22.2</version>
                 <configuration>
                     <skipTests>${skipUTs}</skipTests>
                 </configuration>
@@ -298,7 +310,11 @@
             <!-- Package Phase -->
             <plugin>
                 <artifactId>maven-source-plugin</artifactId>
+  <<<<<<< redacted-passwords
                 <version>2.2.1</version>
+  =======
+                <version>3.2.1</version>
+  >>>>>>> master
                 <executions>
                     <execution>
                         <id>attach-sources</id>
@@ -310,7 +326,11 @@
             </plugin>
             <plugin>
                 <artifactId>maven-javadoc-plugin</artifactId>
+  <<<<<<< redacted-passwords
                 <version>2.10.4</version>
+  =======
+                <version>3.3.0</version>
+  >>>>>>> master
                 <executions>
                     <execution>
                         <id>attach-javadocs</id>
@@ -345,14 +365,22 @@
             <!-- Verify Phase -->
             <plugin>
                 <artifactId>maven-failsafe-plugin</artifactId>
+  <<<<<<< redacted-passwords
                 <version>2.19.1</version>
+  =======
+                <version>2.22.2</version>
+  >>>>>>> master
                 <executions>
                     <execution>
                         <goals>
                             <goal>integration-test</goal>
                             <goal>verify</goal>
                         </goals>
+  <<<<<<< redacted-passwords
                     </execution>                    
+  =======
+                    </execution>
+  >>>>>>> master
                 </executions>
             </plugin>
 
@@ -360,7 +388,7 @@
             <plugin>
                 <groupId>org.sonatype.plugins</groupId>
                 <artifactId>nexus-staging-maven-plugin</artifactId>
-                <version>1.6.7</version>
+                <version>1.6.8</version>
                 <extensions>true</extensions>
                 <configuration>
                     <serverId>ossrh</serverId>
@@ -375,7 +403,7 @@
         <plugins>
             <plugin>
                 <artifactId>maven-project-info-reports-plugin</artifactId>
-                <version>2.9</version>
+                <version>3.1.2</version>
                 <reportSets>
                     <reportSet>
                         <configuration>
@@ -388,54 +416,93 @@
         </plugins>
     </reporting>
 
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.google.cloud</groupId>
+                <artifactId>libraries-bom</artifactId>
+                <version>20.5.0</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.google.api-client</groupId>
+                <artifactId>google-api-client-bom</artifactId>
+                <version>1.31.5</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <!-- Google Cloud Platform dependencies -->
         <dependency>
             <groupId>com.google.api-client</groupId>
             <artifactId>google-api-client</artifactId>
+  <<<<<<< redacted-passwords
             <version>1.30.9</version>
+  =======
+  >>>>>>> master
         </dependency>
         <dependency>
             <groupId>com.google.api-client</groupId>
             <artifactId>google-api-client-gson</artifactId>
+  <<<<<<< redacted-passwords
             <version>1.30.9</version>
+  =======
+  >>>>>>> master
         </dependency>
         <dependency>
             <groupId>com.google.http-client</groupId>
             <artifactId>google-http-client</artifactId>
+  <<<<<<< redacted-passwords
             <version>1.35.0</version>
+  =======
+  >>>>>>> master
         </dependency>
         <dependency>
             <groupId>com.google.api</groupId>
             <artifactId>api-common</artifactId>
+  <<<<<<< redacted-passwords
             <version>1.9.2</version>
+  =======
+  >>>>>>> master
         </dependency>
         <dependency>
             <groupId>com.google.auth</groupId>
             <artifactId>google-auth-library-oauth2-http</artifactId>
+  <<<<<<< redacted-passwords
             <version>0.20.0</version>
+  =======
+  >>>>>>> master
         </dependency>
         <dependency>
             <groupId>com.google.cloud</groupId>
             <artifactId>google-cloud-storage</artifactId>
+  <<<<<<< redacted-passwords
             <version>1.108.0</version>
+  =======
+  >>>>>>> master
         </dependency>
         <dependency>
             <groupId>com.google.cloud</groupId>
             <artifactId>google-cloud-firestore</artifactId>
+  <<<<<<< redacted-passwords
             <version>1.34.0</version>
+  =======
+  >>>>>>> master
         </dependency>
 
         <!-- Utilities -->
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>26.0-android</version>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
-            <version>1.7.25</version>
+            <version>1.7.30</version>
         </dependency>
         <dependency>
             <groupId>io.netty</groupId>
@@ -457,7 +524,7 @@
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
-            <version>2.23.4</version>
+            <version>3.10.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -467,22 +534,16 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>com.cedarsoftware</groupId>
-            <artifactId>java-util</artifactId>
-            <version>1.26.0</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <version>4.12</version>
+            <version>4.13.2</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <!-- Used for some snippets -->
             <groupId>javax.ws.rs</groupId>
             <artifactId>javax.ws.rs-api</artifactId>
-            <version>2.0</version>
+            <version>2.1.1</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
