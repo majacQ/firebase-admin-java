@@ -16,6 +16,7 @@
 
 package com.google.firebase.auth;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNotSame;
@@ -24,130 +25,43 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.google.api.client.googleapis.testing.auth.oauth2.MockTokenServerTransport;
-import com.google.api.client.googleapis.util.Utils;
-import com.google.api.client.http.HttpTransport;
-import com.google.api.client.json.JsonFactory;
-import com.google.api.client.json.gson.GsonFactory;
+import com.google.api.client.testing.http.MockHttpTransport;
+import com.google.api.client.testing.http.MockLowLevelHttpResponse;
 import com.google.api.core.ApiFuture;
-import com.google.auth.http.HttpTransportFactory;
-import com.google.auth.oauth2.GoogleCredentials;
-import com.google.auth.oauth2.ServiceAccountCredentials;
-import com.google.auth.oauth2.UserCredentials;
 import com.google.common.base.Defaults;
-import com.google.common.base.Strings;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableMap;
+import com.google.firebase.ErrorCode;
+
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
-import com.google.firebase.ImplFirebaseTrampolines;
 import com.google.firebase.TestOnlyImplFirebaseTrampolines;
-import com.google.firebase.auth.internal.FirebaseCustomAuthToken;
-import com.google.firebase.database.MapBuilder;
 import com.google.firebase.testing.ServiceAccount;
+import com.google.firebase.testing.TestResponseInterceptor;
 import com.google.firebase.testing.TestUtils;
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
-import org.junit.Assert;
-import org.junit.Assume;
-import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameters;
 
-@RunWith(Parameterized.class)
 public class FirebaseAuthTest {
 
-  private static final String ACCESS_TOKEN = "mockaccesstoken";
-  private static final String CLIENT_SECRET = "mockclientsecret";
-  private static final String CLIENT_ID = "mockclientid";
-  private static final String REFRESH_TOKEN = "mockrefreshtoken";
-  private static final JsonFactory JSON_FACTORY = Utils.getDefaultJsonFactory();
+  private static final FirebaseOptions firebaseOptions = FirebaseOptions.builder()
+      .setCredentials(TestUtils.getCertCredential(ServiceAccount.EDITOR.asStream()))
+      .build();
 
-  private final FirebaseOptions firebaseOptions;
-  private final boolean isCertCredential;
-
-  public FirebaseAuthTest(FirebaseOptions baseOptions, boolean isCertCredential) {
-    this.firebaseOptions = baseOptions;
-    this.isCertCredential = isCertCredential;
-  }
-
-  @Parameters
-  public static Collection<Object[]> data() throws Exception {
-    // Initialize this test suite with all available credential implementations.
-    return Arrays.asList(
-        new Object[][] {
-          {
-            new FirebaseOptions.Builder().setCredentials(createCertificateCredential()).build(),
-            /* isCertCredential */ true
-          },
-          {
-            new FirebaseOptions.Builder().setCredentials(createRefreshTokenCredential()).build(),
-            /* isCertCredential */ false
-          },
-          {
-            new FirebaseOptions.Builder()
-                .setCredentials(TestUtils.getApplicationDefaultCredentials())
-                .build(),
-            /* isCertCredential */ false
-          },
-        });
-  }
-
-  private static GoogleCredentials createRefreshTokenCredential() throws IOException {
-
-    final MockTokenServerTransport transport = new MockTokenServerTransport();
-    transport.addClient(CLIENT_ID, CLIENT_SECRET);
-    transport.addRefreshToken(REFRESH_TOKEN, ACCESS_TOKEN);
-
-    Map<String, Object> secretJson = new HashMap<>();
-    secretJson.put("client_id", CLIENT_ID);
-    secretJson.put("client_secret", CLIENT_SECRET);
-    secretJson.put("refresh_token", REFRESH_TOKEN);
-    secretJson.put("type", "authorized_user");
-    InputStream refreshTokenStream =
-        new ByteArrayInputStream(JSON_FACTORY.toByteArray(secretJson));
-
-    return UserCredentials.fromStream(refreshTokenStream, new HttpTransportFactory() {
-      @Override
-      public HttpTransport create() {
-        return transport;
-      }
-    });
-  }
-
-  private static GoogleCredentials createCertificateCredential() throws IOException {
-    final MockTokenServerTransport transport = new MockTokenServerTransport();
-    transport.addServiceAccount(ServiceAccount.EDITOR.getEmail(), ACCESS_TOKEN);
-    return ServiceAccountCredentials.fromStream(ServiceAccount.EDITOR.asStream(),
-        new HttpTransportFactory() {
-          @Override
-          public HttpTransport create() {
-            return transport;
-          }
-        });
-  }
-
-  @Before
-  public void setup() {
-    TestOnlyImplFirebaseTrampolines.clearInstancesForTest();
-    FirebaseApp.initializeApp(firebaseOptions);
-  }
+  private static final FirebaseAuthException testException = new FirebaseAuthException(
+      ErrorCode.INVALID_ARGUMENT, "Test error message", null, null, null);
+  private static final long VALID_SINCE = 1494364393;
+  private static final String TEST_USER = "testUser";
 
   @After
   public void cleanup() {
@@ -156,11 +70,10 @@ public class FirebaseAuthTest {
 
   @Test
   public void testGetInstance() {
+    FirebaseApp.initializeApp(firebaseOptions);
     FirebaseAuth defaultAuth = FirebaseAuth.getInstance();
     assertNotNull(defaultAuth);
     assertSame(defaultAuth, FirebaseAuth.getInstance());
-    String token = TestOnlyImplFirebaseTrampolines.getToken(FirebaseApp.getInstance(), false);
-    Assert.assertTrue(!token.isEmpty());
   }
 
   @Test
@@ -169,8 +82,6 @@ public class FirebaseAuthTest {
     FirebaseAuth auth = FirebaseAuth.getInstance(app);
     assertNotNull(auth);
     assertSame(auth, FirebaseAuth.getInstance(app));
-    String token = TestOnlyImplFirebaseTrampolines.getToken(app, false);
-    Assert.assertTrue(!token.isEmpty());
   }
 
   @Test
@@ -230,133 +141,426 @@ public class FirebaseAuthTest {
     assertNotNull(auth2);
     assertNotSame(auth1, auth2);
 
-    if (isCertCredential) {
-      ApiFuture<String> future = auth2.createCustomTokenAsync("foo");
-      assertNotNull(future);
-      assertNotNull(future.get(TestUtils.TEST_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS));
-    }
+    ApiFuture<String> future = auth2.createCustomTokenAsync("foo");
+    assertNotNull(future);
+    assertNotNull(future.get(TestUtils.TEST_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS));
   }
 
   @Test
-  public void testAppWithAuthVariableOverrides() {
-    Map<String, Object> authVariableOverrides = Collections.singletonMap("uid", (Object) "uid1");
-    FirebaseOptions options =
-        new FirebaseOptions.Builder(firebaseOptions)
-            .setDatabaseAuthVariableOverride(authVariableOverrides)
-            .build();
-    FirebaseApp app = FirebaseApp.initializeApp(options, "testGetAppWithUid");
-    assertEquals("uid1", app.getOptions().getDatabaseAuthVariableOverride().get("uid"));
-    String token = TestOnlyImplFirebaseTrampolines.getToken(app, false);
-    Assert.assertTrue(!token.isEmpty());
+  public void testProjectIdNotRequiredAtInitialization() {
+    FirebaseOptions options = FirebaseOptions.builder()
+        .setCredentials(new MockGoogleCredentials())
+        .build();
+    FirebaseApp app = FirebaseApp.initializeApp(options, "testProjectIdRequired");
+    assertNotNull(FirebaseAuth.getInstance(app));
   }
 
-  @Test
-  public void testCreateCustomToken() throws Exception {
-    GoogleCredentials credentials = TestOnlyImplFirebaseTrampolines.getCredentials(firebaseOptions);
-    Assume.assumeTrue("Skipping testCredentialCertificateRequired for cert credential",
-        credentials instanceof ServiceAccountCredentials);
-
-    FirebaseApp app = FirebaseApp.initializeApp(firebaseOptions, "testCreateCustomToken");
-    FirebaseAuth auth = FirebaseAuth.getInstance(app);
-
-    String token = auth.createCustomTokenAsync("user1").get();
-
-    FirebaseCustomAuthToken parsedToken = FirebaseCustomAuthToken.parse(new GsonFactory(), token);
-    assertEquals(parsedToken.getPayload().getUid(), "user1");
-    assertEquals(parsedToken.getPayload().getSubject(), ServiceAccount.EDITOR.getEmail());
-    assertEquals(parsedToken.getPayload().getIssuer(), ServiceAccount.EDITOR.getEmail());
-    assertNull(parsedToken.getPayload().getDeveloperClaims());
-    assertTrue(ServiceAccount.EDITOR.verifySignature(parsedToken));
-  }
-
-  @Test
-  public void testCreateCustomTokenWithDeveloperClaims() throws Exception {
-    GoogleCredentials credentials = TestOnlyImplFirebaseTrampolines.getCredentials(firebaseOptions);
-    Assume.assumeTrue("Skipping testCredentialCertificateRequired for cert credential",
-        credentials instanceof ServiceAccountCredentials);
-
-    FirebaseApp app =
-        FirebaseApp.initializeApp(firebaseOptions, "testCreateCustomTokenWithDeveloperClaims");
-    FirebaseAuth auth = FirebaseAuth.getInstance(app);
-
-    String token =
-        auth.createCustomTokenAsync("user1", MapBuilder.of("claim", "value")).get();
-
-    FirebaseCustomAuthToken parsedToken = FirebaseCustomAuthToken.parse(new GsonFactory(), token);
-    assertEquals(parsedToken.getPayload().getUid(), "user1");
-    assertEquals(parsedToken.getPayload().getSubject(), ServiceAccount.EDITOR.getEmail());
-    assertEquals(parsedToken.getPayload().getIssuer(), ServiceAccount.EDITOR.getEmail());
-    assertEquals(parsedToken.getPayload().getDeveloperClaims().keySet().size(), 1);
-    assertEquals(parsedToken.getPayload().getDeveloperClaims().get("claim"), "value");
-    assertTrue(ServiceAccount.EDITOR.verifySignature(parsedToken));
-  }
-
-  @Test
-  public void testServiceAccountRequired() throws Exception {
-    GoogleCredentials credentials = TestOnlyImplFirebaseTrampolines.getCredentials(firebaseOptions);
-    Assume.assumeFalse("Skipping testServiceAccountRequired for service account credentials",
-        credentials instanceof ServiceAccountCredentials);
-
-    FirebaseApp app = FirebaseApp.initializeApp(firebaseOptions, "testServiceAccountRequired");
-    try {
-      FirebaseAuth.getInstance(app).createCustomTokenAsync("foo").get();
-      fail("Expected exception.");
-    } catch (IllegalArgumentException expected) {
-      Assert.assertEquals(
-          "Must initialize FirebaseApp with a service account credential to call "
-              + "createCustomToken()",
-          expected.getMessage());
-    }
-  }
-
-  @Test
-  public void testProjectIdRequired() throws Exception {
-    FirebaseApp app = FirebaseApp.initializeApp(firebaseOptions, "testProjectIdRequired");
-    String projectId = ImplFirebaseTrampolines.getProjectId(app);
-    Assume.assumeTrue("Skipping testProjectIdRequired for settings with project ID",
-        Strings.isNullOrEmpty(projectId));
-
-    try {
-      FirebaseAuth.getInstance(app).verifyIdTokenAsync("foo").get();
-      fail("Expected exception.");
-    } catch (IllegalArgumentException expected) {
-      Assert.assertEquals(
-          "Must initialize FirebaseApp with a project ID to call verifyIdToken()",
-          expected.getMessage());
-    }
-  }
-
-  @Test
-  public void testVerifyIdTokenWithExplicitProjectId() throws Exception {
-    GoogleCredentials credentials = TestOnlyImplFirebaseTrampolines.getCredentials(firebaseOptions);
-    Assume.assumeFalse(
-        "Skipping testVerifyIdTokenWithExplicitProjectId for service account credentials",
-        credentials instanceof ServiceAccountCredentials);
-
-    FirebaseOptions options =
-        new FirebaseOptions.Builder(firebaseOptions)
-            .setProjectId("mock-project-id")
-            .build();
-    FirebaseApp app = FirebaseApp.initializeApp(options, "testVerifyIdTokenWithExplicitProjectId");
-    try {
-      FirebaseAuth.getInstance(app).verifyIdTokenAsync("foo").get();
-      fail("Expected exception.");
-    } catch (ExecutionException expected) {
-      Assert.assertNotEquals(
-          "com.google.firebase.FirebaseException: Must initialize FirebaseApp with a project ID "
-              + "to call verifyIdToken()",
-          expected.getMessage());
-      assertTrue(expected.getCause() instanceof IllegalArgumentException);
-    }
-  }
-
-  @Test(expected = IllegalArgumentException.class)
+  @Test(expected = NullPointerException.class)
   public void testAuthExceptionNullErrorCode() {
-    new FirebaseAuthException(null, "test");
+    new FirebaseAuthException(null, "test", null, null, null);
   }
 
   @Test(expected = IllegalArgumentException.class)
-  public void testAuthExceptionEmptyErrorCode() {
-    new FirebaseAuthException("", "test");
+  public void testAuthExceptionNullMessage() {
+    new FirebaseAuthException(ErrorCode.INTERNAL, null, null, null, null);
+  }
+
+  @Test
+  public void testDefaultIdTokenVerifier() {
+    FirebaseApp.initializeApp(firebaseOptions);
+
+    FirebaseTokenVerifier tokenVerifier = FirebaseAuth.getInstance()
+        .getIdTokenVerifier(false);
+
+    assertTrue(tokenVerifier instanceof FirebaseTokenVerifierImpl);
+    String shortName = ((FirebaseTokenVerifierImpl) tokenVerifier).getShortName();
+    assertEquals("ID token", shortName);
+  }
+
+  @Test
+  public void testIdTokenVerifierInitializedOnDemand() throws Exception {
+    FirebaseTokenVerifier tokenVerifier = MockTokenVerifier.fromUid("idTokenUser");
+    CountingSupplier<FirebaseTokenVerifier> countingSupplier = new CountingSupplier<>(
+        Suppliers.ofInstance(tokenVerifier));
+
+    FirebaseAuth auth = getAuthForIdTokenVerification(countingSupplier);
+    assertEquals(0, countingSupplier.getCount());
+
+    auth.verifyIdToken("idToken");
+    auth.verifyIdToken("idToken");
+
+    assertEquals(1, countingSupplier.getCount());
+  }
+
+  @Test
+  public void testVerifyIdTokenWithNull() {
+    MockTokenVerifier tokenVerifier = MockTokenVerifier.fromUid("uid");
+    FirebaseAuth auth = getAuthForIdTokenVerification(tokenVerifier);
+
+    try {
+      auth.verifyIdTokenAsync(null);
+      fail("No error thrown for null id token");
+    } catch (IllegalArgumentException expected) {
+      assertNull(tokenVerifier.getLastTokenString());
+    }
+  }
+
+  @Test
+  public void testVerifyIdTokenWithEmptyString() {
+    MockTokenVerifier tokenVerifier = MockTokenVerifier.fromUid("uid");
+    FirebaseAuth auth = getAuthForIdTokenVerification(tokenVerifier);
+
+    try {
+      auth.verifyIdTokenAsync("");
+      fail("No error thrown for null id token");
+    } catch (IllegalArgumentException expected) {
+      assertNull(tokenVerifier.getLastTokenString());
+    }
+  }
+
+  @Test
+  public void testVerifyIdToken() throws Exception {
+    MockTokenVerifier tokenVerifier = MockTokenVerifier.fromUid("testUser");
+    FirebaseAuth auth = getAuthForIdTokenVerification(tokenVerifier);
+
+    FirebaseToken firebaseToken = auth.verifyIdToken("idtoken");
+
+    assertEquals("testUser", firebaseToken.getUid());
+    assertEquals("idtoken", tokenVerifier.getLastTokenString());
+  }
+
+  @Test
+  public void testVerifyIdTokenWithRevocationCheck() throws Exception {
+    MockTokenVerifier tokenVerifier = MockTokenVerifier.fromResult(
+        getFirebaseToken(VALID_SINCE + 1000));
+    FirebaseAuth auth = getAuthForIdTokenVerificationWithRevocationCheck(tokenVerifier);
+
+    FirebaseToken firebaseToken = auth.verifyIdToken("idtoken", true);
+
+    assertEquals("testUser", firebaseToken.getUid());
+    assertEquals("idtoken", tokenVerifier.getLastTokenString());
+  }
+
+  @Test
+  public void testVerifyIdTokenWithRevocationCheckFailure() {
+    MockTokenVerifier tokenVerifier = MockTokenVerifier.fromResult(
+        getFirebaseToken(VALID_SINCE - 1000));
+    FirebaseAuth auth = getAuthForIdTokenVerificationWithRevocationCheck(tokenVerifier);
+
+    try {
+      auth.verifyIdToken("idtoken", true);
+      fail("No error thrown for revoked ID token");
+    } catch (FirebaseAuthException e) {
+      assertEquals(ErrorCode.INVALID_ARGUMENT, e.getErrorCode());
+      assertEquals("Firebase id token is revoked.", e.getMessage());
+      assertNull(e.getCause());
+      assertNull(e.getHttpResponse());
+      assertEquals(AuthErrorCode.REVOKED_ID_TOKEN, e.getAuthErrorCode());
+    }
+
+    assertEquals("idtoken", tokenVerifier.getLastTokenString());
+  }
+
+  @Test
+  public void testVerifyIdTokenFailure() {
+    MockTokenVerifier tokenVerifier = MockTokenVerifier.fromException(testException);
+    FirebaseAuth auth = getAuthForIdTokenVerification(tokenVerifier);
+
+    try {
+      auth.verifyIdToken("idtoken");
+      fail("No error thrown for invalid token");
+    } catch (FirebaseAuthException authException) {
+      assertSame(testException, authException);
+    }
+  }
+
+  @Test
+  public void testVerifyIdTokenAsync() throws Exception {
+    MockTokenVerifier tokenVerifier = MockTokenVerifier.fromUid("testUser");
+    FirebaseAuth auth = getAuthForIdTokenVerification(tokenVerifier);
+
+    FirebaseToken firebaseToken = auth.verifyIdTokenAsync("idtoken").get();
+
+    assertEquals("testUser", firebaseToken.getUid());
+    assertEquals("idtoken", tokenVerifier.getLastTokenString());
+  }
+
+  @Test
+  public void testVerifyIdTokenAsyncFailure() throws InterruptedException {
+    MockTokenVerifier tokenVerifier = MockTokenVerifier.fromException(testException);
+    FirebaseAuth auth = getAuthForIdTokenVerification(tokenVerifier);
+
+    try {
+      auth.verifyIdTokenAsync("idtoken").get();
+      fail("No error thrown for invalid token");
+    } catch (ExecutionException e) {
+      FirebaseAuthException authException = (FirebaseAuthException) e.getCause();
+      assertSame(testException, authException);
+    }
+  }
+
+  @Test
+  public void testVerifyIdTokenWithCheckRevokedAsyncFailure() throws InterruptedException {
+    MockTokenVerifier tokenVerifier = MockTokenVerifier.fromException(testException);
+    FirebaseAuth auth = getAuthForIdTokenVerification(tokenVerifier);
+
+    try {
+      auth.verifyIdTokenAsync("idtoken", true).get();
+      fail("No error thrown for invalid token");
+    } catch (ExecutionException e) {
+      FirebaseAuthException authException = (FirebaseAuthException) e.getCause();
+      assertSame(testException, authException);
+    }
+  }
+
+  @Test
+  public void testDefaultSessionCookieVerifier() {
+    FirebaseApp.initializeApp(firebaseOptions);
+
+    FirebaseTokenVerifier tokenVerifier = FirebaseAuth.getInstance()
+        .getSessionCookieVerifier(false);
+
+    assertTrue(tokenVerifier instanceof FirebaseTokenVerifierImpl);
+    String shortName = ((FirebaseTokenVerifierImpl) tokenVerifier).getShortName();
+    assertEquals("session cookie", shortName);
+  }
+
+  @Test
+  public void testSessionCookieVerifierInitializedOnDemand() throws Exception {
+    FirebaseTokenVerifier tokenVerifier = MockTokenVerifier.fromUid("cookieUser");
+    CountingSupplier<FirebaseTokenVerifier> countingSupplier = new CountingSupplier<>(
+        Suppliers.ofInstance(tokenVerifier));
+    FirebaseAuth auth = getAuthForSessionCookieVerification(countingSupplier);
+
+    assertEquals(0, countingSupplier.getCount());
+
+    auth.verifySessionCookie("sessionCookie");
+    auth.verifySessionCookie("sessionCookie");
+
+    assertEquals(1, countingSupplier.getCount());
+  }
+
+  @Test
+  public void testVerifySessionCookieWithNull() {
+    MockTokenVerifier tokenVerifier = MockTokenVerifier.fromUid("uid");
+    FirebaseAuth auth = getAuthForSessionCookieVerification(tokenVerifier);
+
+    try {
+      auth.verifySessionCookieAsync(null);
+      fail("No error thrown for null id token");
+    } catch (IllegalArgumentException expected) {
+      assertNull(tokenVerifier.getLastTokenString());
+    }
+  }
+
+  @Test
+  public void testVerifySessionCookieWithEmptyString() {
+    MockTokenVerifier tokenVerifier = MockTokenVerifier.fromUid("uid");
+    FirebaseAuth auth = getAuthForSessionCookieVerification(tokenVerifier);
+
+    try {
+      auth.verifySessionCookieAsync("");
+      fail("No error thrown for null id token");
+    } catch (IllegalArgumentException expected) {
+      assertNull(tokenVerifier.getLastTokenString());
+    }
+  }
+
+  @Test
+  public void testVerifySessionCookie() throws Exception {
+    MockTokenVerifier tokenVerifier = MockTokenVerifier.fromUid("testUser");
+    FirebaseAuth auth = getAuthForSessionCookieVerification(tokenVerifier);
+
+    FirebaseToken firebaseToken = auth.verifySessionCookie("idtoken");
+
+    assertEquals("testUser", firebaseToken.getUid());
+    assertEquals("idtoken", tokenVerifier.getLastTokenString());
+  }
+
+  @Test
+  public void testVerifySessionCookieFailure() {
+    MockTokenVerifier tokenVerifier = MockTokenVerifier.fromException(testException);
+    FirebaseAuth auth = getAuthForSessionCookieVerification(tokenVerifier);
+
+    try {
+      auth.verifySessionCookie("idtoken");
+      fail("No error thrown for invalid token");
+    } catch (FirebaseAuthException authException) {
+      assertSame(testException, authException);
+    }
+  }
+
+  @Test
+  public void testVerifySessionCookieWithRevocationCheck() throws Exception {
+    MockTokenVerifier tokenVerifier = MockTokenVerifier.fromResult(
+        getFirebaseToken(VALID_SINCE + 1000));
+    FirebaseAuth auth = getAuthForSessionCookieVerificationWithRevocationCheck(tokenVerifier);
+
+    FirebaseToken firebaseToken = auth.verifySessionCookie("cookie", true);
+
+    assertEquals("testUser", firebaseToken.getUid());
+    assertEquals("cookie", tokenVerifier.getLastTokenString());
+  }
+
+  @Test
+  public void testVerifySessionCookieWithRevocationCheckFailure() {
+    MockTokenVerifier tokenVerifier = MockTokenVerifier.fromResult(
+        getFirebaseToken(VALID_SINCE - 1000));
+    FirebaseAuth auth = getAuthForSessionCookieVerificationWithRevocationCheck(tokenVerifier);
+
+    try {
+      auth.verifySessionCookie("cookie", true);
+      fail("No error thrown for revoked session cookie");
+    } catch (FirebaseAuthException e) {
+      assertEquals(ErrorCode.INVALID_ARGUMENT, e.getErrorCode());
+      assertEquals("Firebase session cookie is revoked.", e.getMessage());
+      assertNull(e.getCause());
+      assertNull(e.getHttpResponse());
+      assertEquals(AuthErrorCode.REVOKED_SESSION_COOKIE, e.getAuthErrorCode());
+    }
+
+    assertEquals("cookie", tokenVerifier.getLastTokenString());
+  }
+
+  @Test
+  public void testVerifySessionCookieAsync() throws Exception {
+    MockTokenVerifier tokenVerifier = MockTokenVerifier.fromUid("testUser");
+    FirebaseAuth auth = getAuthForSessionCookieVerification(tokenVerifier);
+
+    FirebaseToken firebaseToken = auth.verifySessionCookieAsync("idtoken").get();
+
+    assertEquals("testUser", firebaseToken.getUid());
+    assertEquals("idtoken", tokenVerifier.getLastTokenString());
+  }
+
+  @Test
+  public void testVerifySessionCookieAsyncFailure() throws InterruptedException {
+    MockTokenVerifier tokenVerifier = MockTokenVerifier.fromException(testException);
+    FirebaseAuth auth = getAuthForSessionCookieVerification(tokenVerifier);
+
+    try {
+      auth.verifySessionCookieAsync("idtoken").get();
+      fail("No error thrown for invalid token");
+    } catch (ExecutionException e) {
+      FirebaseAuthException authException = (FirebaseAuthException) e.getCause();
+      assertSame(testException, authException);
+    }
+  }
+
+  @Test
+  public void testVerifySessionCookieWithCheckRevokedAsyncFailure() throws InterruptedException {
+    MockTokenVerifier tokenVerifier = MockTokenVerifier.fromException(testException);
+    FirebaseAuth auth = getAuthForSessionCookieVerification(tokenVerifier);
+
+    try {
+      auth.verifySessionCookieAsync("idtoken", true).get();
+      fail("No error thrown for invalid token");
+    } catch (ExecutionException e) {
+      FirebaseAuthException authException = (FirebaseAuthException) e.getCause();
+      assertSame(testException, authException);
+    }
+  }
+
+  private FirebaseToken getFirebaseToken(String subject) {
+    return new FirebaseToken(ImmutableMap.<String, Object>of("sub", subject));
+  }
+
+  private FirebaseToken getFirebaseToken(long issuedAt) {
+    return new FirebaseToken(ImmutableMap.<String, Object>of("sub", TEST_USER, "iat", issuedAt));
+  }
+
+  FirebaseAuth getAuthForIdTokenVerificationWithRevocationCheck(
+      FirebaseTokenVerifier tokenVerifier) {
+    FirebaseApp app = getFirebaseAppForUserRetrieval();
+    return getAuthForIdTokenVerification(app, Suppliers.ofInstance(tokenVerifier));
+  }
+
+  private FirebaseAuth getAuthForIdTokenVerification(FirebaseTokenVerifier tokenVerifier) {
+    return getAuthForIdTokenVerification(Suppliers.ofInstance(tokenVerifier));
+  }
+
+  private FirebaseAuth getAuthForIdTokenVerification(
+      Supplier<? extends FirebaseTokenVerifier> tokenVerifierSupplier) {
+    FirebaseApp app = FirebaseApp.initializeApp(firebaseOptions);
+    return getAuthForIdTokenVerification(app, tokenVerifierSupplier);
+  }
+
+  private FirebaseAuth getAuthForIdTokenVerification(
+      FirebaseApp app,
+      Supplier<? extends FirebaseTokenVerifier> tokenVerifierSupplier) {
+    FirebaseUserManager userManager = FirebaseUserManager.createUserManager(app, null);
+    return FirebaseAuth.builder()
+        .setFirebaseApp(app)
+        .setIdTokenVerifier(tokenVerifierSupplier)
+        .setUserManager(Suppliers.ofInstance(userManager))
+        .build();
+  }
+
+  FirebaseAuth getAuthForSessionCookieVerificationWithRevocationCheck(
+      FirebaseTokenVerifier tokenVerifier) {
+    FirebaseApp app = getFirebaseAppForUserRetrieval();
+    return getAuthForSessionCookieVerification(app, Suppliers.ofInstance(tokenVerifier));
+  }
+
+  private FirebaseAuth getAuthForSessionCookieVerification(FirebaseTokenVerifier tokenVerifier) {
+    return getAuthForSessionCookieVerification(Suppliers.ofInstance(tokenVerifier));
+  }
+
+  private FirebaseAuth getAuthForSessionCookieVerification(
+      Supplier<? extends FirebaseTokenVerifier> tokenVerifierSupplier) {
+    FirebaseApp app = FirebaseApp.initializeApp(firebaseOptions);
+    return getAuthForSessionCookieVerification(app, tokenVerifierSupplier);
+  }
+
+  private FirebaseAuth getAuthForSessionCookieVerification(
+      FirebaseApp app,
+      Supplier<? extends FirebaseTokenVerifier> tokenVerifierSupplier) {
+    FirebaseUserManager userManager = FirebaseUserManager.createUserManager(app, null);
+    return FirebaseAuth.builder()
+        .setFirebaseApp(app)
+        .setCookieVerifier(tokenVerifierSupplier)
+        .setUserManager(Suppliers.ofInstance(userManager))
+        .build();
+  }
+
+  private FirebaseApp getFirebaseAppForUserRetrieval() {
+    String getUserResponse = TestUtils.loadResource("getUser.json");
+    MockHttpTransport transport = new MockHttpTransport.Builder()
+        .setLowLevelHttpResponse(new MockLowLevelHttpResponse().setContent(getUserResponse))
+        .build();
+    return FirebaseApp.initializeApp(FirebaseOptions.builder()
+        .setCredentials(new MockGoogleCredentials("test-token"))
+        .setHttpTransport(transport)
+        .setProjectId("test-project-id")
+        .build());
+  }
+
+  public static TestResponseInterceptor setUserManager(
+      AbstractFirebaseAuth.Builder<?> builder, FirebaseApp app, String tenantId) {
+    TestResponseInterceptor interceptor = new TestResponseInterceptor();
+    FirebaseUserManager userManager = FirebaseUserManager.createUserManager(app, tenantId);
+    userManager.setInterceptor(interceptor);
+    builder.setUserManager(Suppliers.ofInstance(userManager));
+    return interceptor;
+  }
+
+  private static class CountingSupplier<T> implements Supplier<T> {
+
+    private final AtomicInteger counter = new AtomicInteger(0);
+    private final Supplier<T> supplier;
+
+    CountingSupplier(Supplier<T> supplier) {
+      this.supplier = checkNotNull(supplier);
+    }
+
+    @Override
+    public T get() {
+      counter.incrementAndGet();
+      return supplier.get();
+    }
+
+    int getCount() {
+      return counter.get();
+    }
   }
 }

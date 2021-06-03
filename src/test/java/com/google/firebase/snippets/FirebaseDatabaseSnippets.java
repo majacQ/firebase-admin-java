@@ -145,7 +145,7 @@ public class FirebaseDatabaseSnippets {
 
     // [START adding_completion_callback]
     DatabaseReference dataRef = ref.child("data");
-    dataRef.setValueAsync("I'm writing data", new DatabaseReference.CompletionListener() {
+    dataRef.setValue("I'm writing data", new DatabaseReference.CompletionListener() {
       @Override
       public void onComplete(DatabaseError databaseError, DatabaseReference databaseReference) {
         if (databaseError != null) {
@@ -677,7 +677,7 @@ public class FirebaseDatabaseSnippets {
     FileInputStream serviceAccount = new FileInputStream("path/to/serviceAccount.json");
 
     // Initialize the app with a service account, granting admin privileges
-    FirebaseOptions options = new FirebaseOptions.Builder()
+    FirebaseOptions options = FirebaseOptions.builder()
         .setCredentials(GoogleCredentials.fromStream(serviceAccount))
         .setDatabaseUrl("https://<databaseName>.firebaseio.com")
         .build();
