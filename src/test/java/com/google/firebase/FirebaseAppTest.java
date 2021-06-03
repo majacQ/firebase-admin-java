@@ -19,6 +19,7 @@ package com.google.firebase;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -34,8 +35,11 @@ import com.google.auth.oauth2.OAuth2Credentials;
 import com.google.auth.oauth2.OAuth2Credentials.CredentialsChangedListener;
 import com.google.common.base.Defaults;
 import com.google.common.base.Strings;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.firebase.FirebaseApp.TokenRefresher;
 import com.google.firebase.FirebaseOptions.Builder;
 import com.google.firebase.database.FirebaseDatabase;
@@ -57,6 +61,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
+import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Rule;
@@ -78,6 +83,11 @@ public class FirebaseAppTest {
   @BeforeClass
   public static void setupClass() throws IOException {
     TestUtils.getApplicationDefaultCredentials();
+  }
+
+  @AfterClass
+  public static void tearDownClass() {
+    TestUtils.unsetEnvironmentVariables(ImmutableSet.of(FirebaseApp.FIREBASE_CONFIG_ENV_VAR));
   }
 
   @Test(expected = NullPointerException.class)
@@ -448,6 +458,19 @@ public class FirebaseAppTest {
     assertEquals(0, refresher.cancelCalls);
   }
 
+  @Test
+  public void testAppWithAuthVariableOverrides() {
+    Map<String, Object> authVariableOverrides = ImmutableMap.<String, Object>of("uid", "uid1");
+    FirebaseOptions options =
+        new FirebaseOptions.Builder(getMockCredentialOptions())
+            .setDatabaseAuthVariableOverride(authVariableOverrides)
+            .build();
+    FirebaseApp app = FirebaseApp.initializeApp(options, "testGetAppWithUid");
+    assertEquals("uid1", app.getOptions().getDatabaseAuthVariableOverride().get("uid"));
+    String token = TestOnlyImplFirebaseTrampolines.getToken(app, false);
+    Assert.assertTrue(!token.isEmpty());
+  }
+
   @Test(expected = IllegalArgumentException.class)
   public void testEmptyFirebaseConfigFile() {
     setFirebaseConfigEnvironmentVariable("firebase_config_empty.json");
@@ -458,9 +481,9 @@ public class FirebaseAppTest {
   public void testEmptyFirebaseConfigString() {
     setFirebaseConfigEnvironmentVariable("");
     FirebaseApp firebaseApp = FirebaseApp.initializeApp();
-    assertEquals(null, firebaseApp.getOptions().getProjectId());
-    assertEquals(null, firebaseApp.getOptions().getStorageBucket());
-    assertEquals(null, firebaseApp.getOptions().getDatabaseUrl());
+    assertNull(firebaseApp.getOptions().getProjectId());
+    assertNull(firebaseApp.getOptions().getStorageBucket());
+    assertNull(firebaseApp.getOptions().getDatabaseUrl());
     assertTrue(firebaseApp.getOptions().getDatabaseAuthVariableOverride().isEmpty()); 
   }
 
@@ -468,9 +491,9 @@ public class FirebaseAppTest {
   public void testEmptyFirebaseConfigJSONObject() {
     setFirebaseConfigEnvironmentVariable("{}");
     FirebaseApp firebaseApp = FirebaseApp.initializeApp();
-    assertEquals(null, firebaseApp.getOptions().getProjectId());
-    assertEquals(null, firebaseApp.getOptions().getStorageBucket());
-    assertEquals(null, firebaseApp.getOptions().getDatabaseUrl());
+    assertNull(firebaseApp.getOptions().getProjectId());
+    assertNull(firebaseApp.getOptions().getStorageBucket());
+    assertNull(firebaseApp.getOptions().getDatabaseUrl());
     assertTrue(firebaseApp.getOptions().getDatabaseAuthVariableOverride().isEmpty());
   }
 
@@ -514,9 +537,9 @@ public class FirebaseAppTest {
   public void testEnvironmentVariableIgnored() {
     setFirebaseConfigEnvironmentVariable("firebase_config.json");
     FirebaseApp firebaseApp = FirebaseApp.initializeApp(OPTIONS);
-    assertEquals(null, firebaseApp.getOptions().getProjectId());
-    assertEquals(null, firebaseApp.getOptions().getStorageBucket());
-    assertEquals(null, firebaseApp.getOptions().getDatabaseUrl());
+    assertNull(firebaseApp.getOptions().getProjectId());
+    assertNull(firebaseApp.getOptions().getStorageBucket());
+    assertNull(firebaseApp.getOptions().getDatabaseUrl());
     assertTrue(firebaseApp.getOptions().getDatabaseAuthVariableOverride().isEmpty());
   }
 
@@ -564,6 +587,13 @@ public class FirebaseAppTest {
   @Test(expected = IllegalArgumentException.class)
   public void testFirebaseExceptionEmptyDetail() {
     new FirebaseException("");
+  }
+
+  @Test
+  public void testFirebaseAppCreationWithEmptySupplier() {
+    FirebaseApp.initializeApp(FirebaseOptions.builder()
+        .setDatabaseUrl("https://test-ns.firebaseio.com")
+        .setCredentials(Suppliers.<GoogleCredentials>ofInstance(null)).build());
   }
 
   private static void setFirebaseConfigEnvironmentVariable(String configJSON) {
