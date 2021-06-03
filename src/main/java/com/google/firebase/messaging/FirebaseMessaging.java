@@ -41,10 +41,6 @@ import java.util.List;
  */
 public class FirebaseMessaging {
 
-  static final String INTERNAL_ERROR = "internal-error";
-
-  static final String UNKNOWN_ERROR = "unknown-error";
-
   private final FirebaseApp app;
   private final Supplier<? extends FirebaseMessagingClient> messagingClient;
   private final Supplier<? extends InstanceIdClient> instanceIdClient;
@@ -149,7 +145,7 @@ public class FirebaseMessaging {
    * <p>The responses list obtained by calling {@link BatchResponse#getResponses()} on the return
    * value corresponds to the order of input messages.
    *
-   * @param messages A non-null, non-empty list containing up to 100 messages.
+   * @param messages A non-null, non-empty list containing up to 500 messages.
    * @return A {@link BatchResponse} indicating the result of the operation.
    * @throws FirebaseMessagingException If an error occurs while handing the messages off to FCM for
    *     delivery. An exception here indicates a total failure -- i.e. none of the messages in the
@@ -171,7 +167,7 @@ public class FirebaseMessaging {
    * <p>The responses list obtained by calling {@link BatchResponse#getResponses()} on the return
    * value corresponds to the order of input messages.
    *
-   * @param messages A non-null, non-empty list containing up to 100 messages.
+   * @param messages A non-null, non-empty list containing up to 500 messages.
    * @param dryRun A boolean indicating whether to perform a dry run (validation only) of the send.
    * @return A {@link BatchResponse} indicating the result of the operation.
    * @throws FirebaseMessagingException If an error occurs while handing the messages off to FCM for
@@ -186,7 +182,7 @@ public class FirebaseMessaging {
   /**
    * Similar to {@link #sendAll(List)} but performs the operation asynchronously.
    *
-   * @param messages A non-null, non-empty list containing up to 100 messages.
+   * @param messages A non-null, non-empty list containing up to 500 messages.
    * @return @return An {@code ApiFuture} that will complete with a {@link BatchResponse} when
    *     the messages have been sent.
    */
@@ -197,7 +193,7 @@ public class FirebaseMessaging {
   /**
    * Similar to {@link #sendAll(List, boolean)} but performs the operation asynchronously.
    *
-   * @param messages A non-null, non-empty list containing up to 100 messages.
+   * @param messages A non-null, non-empty list containing up to 500 messages.
    * @param dryRun A boolean indicating whether to perform a dry run (validation only) of the send.
    * @return @return An {@code ApiFuture} that will complete with a {@link BatchResponse} when
    *     the messages have been sent, or when the emulation has finished.
@@ -284,8 +280,8 @@ public class FirebaseMessaging {
 
     final List<Message> immutableMessages = ImmutableList.copyOf(messages);
     checkArgument(!immutableMessages.isEmpty(), "messages list must not be empty");
-    checkArgument(immutableMessages.size() <= 100,
-        "messages list must not contain more than 100 elements");
+    checkArgument(immutableMessages.size() <= 500,
+        "messages list must not contain more than 500 elements");
     final FirebaseMessagingClient messagingClient = getMessagingClient();
     return new CallableOperation<BatchResponse,FirebaseMessagingException>() {
       @Override
