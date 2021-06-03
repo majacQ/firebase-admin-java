@@ -32,7 +32,7 @@ public class BatchResponseTest {
   public void testEmptyResponses() {
     List<SendResponse> responses = new ArrayList<>();
 
-    BatchResponse batchResponse = new BatchResponse(responses);
+    BatchResponse batchResponse = new BatchResponseImpl(responses);
 
     assertEquals(0, batchResponse.getSuccessCount());
     assertEquals(0, batchResponse.getFailureCount());
@@ -44,11 +44,16 @@ public class BatchResponseTest {
     ImmutableList<SendResponse> responses = ImmutableList.of(
         SendResponse.fromMessageId("message1"),
         SendResponse.fromMessageId("message2"),
+  <<<<<<< hkj-error-handling
         SendResponse.fromException(new FirebaseMessagingException(ErrorCode.UNKNOWN,
             "error-message", null))
+  =======
+        SendResponse.fromException(
+            new FirebaseMessagingException(ErrorCode.INTERNAL, "error-message"))
+  >>>>>>> master
     );
 
-    BatchResponse batchResponse = new BatchResponse(responses);
+    BatchResponse batchResponse = new BatchResponseImpl(responses);
 
     assertEquals(2, batchResponse.getSuccessCount());
     assertEquals(1, batchResponse.getFailureCount());
@@ -62,7 +67,7 @@ public class BatchResponseTest {
   public void testResponsesImmutable() {
     List<SendResponse> responses = new ArrayList<>();
     responses.add(SendResponse.fromMessageId("message1"));
-    BatchResponse batchResponse = new BatchResponse(responses);
+    BatchResponse batchResponse = new BatchResponseImpl(responses);
     SendResponse sendResponse = SendResponse.fromMessageId("message2");
 
     try {
@@ -75,6 +80,6 @@ public class BatchResponseTest {
 
   @Test(expected = NullPointerException.class)
   public void testResponsesCannotBeNull() {
-    new BatchResponse(null);
+    new BatchResponseImpl(null);
   }
 }

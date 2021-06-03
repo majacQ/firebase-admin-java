@@ -16,9 +16,12 @@
 
 package com.google.firebase.internal;
 
+import com.google.api.client.googleapis.util.Utils;
 import com.google.api.client.http.HttpRequestFactory;
 import com.google.api.client.http.HttpResponse;
 import com.google.api.client.http.HttpTransport;
+import com.google.api.client.json.JsonFactory;
+import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.firebase.ErrorCode;
 import com.google.firebase.FirebaseApp;
@@ -38,11 +41,13 @@ import java.util.Set;
  */
 public class ApiClientUtils {
 
-  private static final RetryConfig DEFAULT_RETRY_CONFIG = RetryConfig.builder()
+  static final RetryConfig DEFAULT_RETRY_CONFIG = RetryConfig.builder()
       .setMaxRetries(4)
       .setRetryStatusCodes(ImmutableList.of(500, 503))
       .setMaxIntervalMillis(60 * 1000)
       .build();
+
+  private ApiClientUtils() { }
 
   /**
    * Creates a new {@code HttpRequestFactory} which provides authorization (OAuth2), timeouts and
@@ -60,14 +65,22 @@ public class ApiClientUtils {
    * automatic retries.
    *
    * @param app {@link FirebaseApp} from which to obtain authorization credentials.
+  <<<<<<< hkj-error-handling
    * @param retryConfig {@link RetryConfig} which specifies how and when to retry errors.
+  =======
+   * @param retryConfig {@link RetryConfig} instance or null to disable retries.
+  >>>>>>> master
    * @return A new {@code HttpRequestFactory} instance.
    */
   public static HttpRequestFactory newAuthorizedRequestFactory(
       FirebaseApp app, @Nullable RetryConfig retryConfig) {
     HttpTransport transport = app.getOptions().getHttpTransport();
+  <<<<<<< hkj-error-handling
     return transport.createRequestFactory(
         new FirebaseRequestInitializer(app, retryConfig));
+  =======
+    return transport.createRequestFactory(new FirebaseRequestInitializer(app, retryConfig));
+  >>>>>>> master
   }
 
   public static HttpRequestFactory newUnauthorizedRequestFactory(FirebaseApp app) {
@@ -85,6 +98,7 @@ public class ApiClientUtils {
     }
   }
 
+  <<<<<<< hkj-error-handling
   public static FirebaseException newFirebaseException(IOException e) {
     ErrorCode code = ErrorCode.UNKNOWN;
     String message = "Unknown error while making a remote service call" ;
@@ -117,5 +131,16 @@ public class ApiClientUtils {
     }
 
     return false;
+  =======
+  public static JsonFactory getDefaultJsonFactory() {
+    // Force using the Jackson2 parser for this project for now. Eventually we should switch
+    // to Gson, but there are some issues that's preventing this migration at the moment.
+    // See https://github.com/googleapis/google-api-java-client/issues/1779 for details.
+    return JacksonFactory.getDefaultInstance();
+  }
+
+  public static HttpTransport getDefaultTransport() {
+    return Utils.getDefaultTransport();
+  >>>>>>> master
   }
 }

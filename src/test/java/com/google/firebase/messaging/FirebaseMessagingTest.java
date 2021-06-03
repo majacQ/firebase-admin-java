@@ -51,7 +51,11 @@ public class FirebaseMessagingTest {
       .addToken("test-fcm-token2")
       .build();
   private static final FirebaseMessagingException TEST_EXCEPTION =
+  <<<<<<< hkj-error-handling
       new FirebaseMessagingException(ErrorCode.UNKNOWN, "Test error message", new Exception());
+  =======
+      new FirebaseMessagingException(ErrorCode.INTERNAL, "Test error message");
+  >>>>>>> master
 
   private static final ImmutableList.Builder<String> TOO_MANY_IDS = ImmutableList.builder();
 
@@ -297,7 +301,7 @@ public class FirebaseMessagingTest {
     MockFirebaseMessagingClient client = MockFirebaseMessagingClient.fromMessageId(null);
     FirebaseMessaging messaging = getMessagingForSend(Suppliers.ofInstance(client));
     ImmutableList.Builder<Message> listBuilder = ImmutableList.builder();
-    for (int i = 0; i < 101; i++) {
+    for (int i = 0; i < 501; i++) {
       listBuilder.add(Message.builder().setTopic("topic").build());
     }
 
@@ -669,7 +673,7 @@ public class FirebaseMessagingTest {
     for (String messageId : messageIds) {
       listBuilder.add(SendResponse.fromMessageId(messageId));
     }
-    return new BatchResponse(listBuilder.build());
+    return new BatchResponseImpl(listBuilder.build());
   }
 
   private static class MockFirebaseMessagingClient implements FirebaseMessagingClient {

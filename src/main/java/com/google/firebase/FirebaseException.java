@@ -23,10 +23,13 @@ import com.google.common.base.Strings;
 import com.google.firebase.internal.NonNull;
 import com.google.firebase.internal.Nullable;
 
-/** Base class for all Firebase exceptions. */
+/**
+ * Base class for all Firebase exceptions.
+ */
 public class FirebaseException extends Exception {
 
   private final ErrorCode errorCode;
+  <<<<<<< hkj-error-handling
   private final FirebaseHttpResponse response;
 
   public FirebaseException(@NonNull String detailMessage) {
@@ -54,5 +57,45 @@ public class FirebaseException extends Exception {
 
   @Nullable public FirebaseHttpResponse getHttpResponse() {
     return response;
+  =======
+  private final IncomingHttpResponse httpResponse;
+
+  public FirebaseException(
+      @NonNull ErrorCode errorCode,
+      @NonNull String message,
+      @Nullable Throwable cause,
+      @Nullable IncomingHttpResponse httpResponse) {
+    super(message, cause);
+    checkArgument(!Strings.isNullOrEmpty(message), "Message must not be null or empty");
+    this.errorCode = checkNotNull(errorCode, "ErrorCode must not be null");
+    this.httpResponse = httpResponse;
+  }
+
+  public FirebaseException(
+      @NonNull ErrorCode errorCode,
+      @NonNull String message,
+      @Nullable Throwable cause) {
+    this(errorCode, message, cause, null);
+  }
+
+  /**
+   * Returns the platform-wide error code associated with this exception.
+   *
+   * @return A Firebase error code.
+   */
+  public final ErrorCode getErrorCode() {
+    return errorCode;
+  }
+
+  /**
+   * Returns the HTTP response that resulted in this exception. If the exception was not caused by
+   * an HTTP error response, returns null.
+   *
+   * @return An HTTP response or null.
+   */
+  @Nullable
+  public final IncomingHttpResponse getHttpResponse() {
+    return httpResponse;
+  >>>>>>> master
   }
 }
