@@ -22,10 +22,13 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.api.client.http.HttpRequestFactory;
 import com.google.api.client.http.HttpResponseInterceptor;
+  <<<<<<< mrschmidt-errormsg
   <<<<<<< rpb/hacky-auth-bypass
   =======
 import com.google.api.client.http.json.JsonHttpContent;
   >>>>>>> chong-shao-typo-fix
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
 import com.google.api.client.json.JsonFactory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
@@ -38,6 +41,7 @@ import com.google.firebase.internal.AbstractPlatformErrorHandler;
 import com.google.firebase.internal.ApiClientUtils;
 import com.google.firebase.internal.ErrorHandlingHttpClient;
 import com.google.firebase.internal.HttpRequestInfo;
+  <<<<<<< mrschmidt-errormsg
   <<<<<<< rpb/hacky-auth-bypass
 import com.google.firebase.internal.SdkUtils;
 import com.google.firebase.remoteconfig.internal.RemoteConfigServiceErrorResponse;
@@ -47,6 +51,11 @@ import com.google.firebase.internal.SdkUtils;
 import com.google.firebase.remoteconfig.internal.RemoteConfigServiceErrorResponse;
 import com.google.firebase.remoteconfig.internal.TemplateResponse;
   >>>>>>> chong-shao-typo-fix
+  =======
+import com.google.firebase.internal.SdkUtils;
+import com.google.firebase.remoteconfig.internal.RemoteConfigServiceErrorResponse;
+import com.google.firebase.remoteconfig.internal.TemplateResponse;
+  >>>>>>> mrschmidt-transactiondataloss
 
 import java.io.IOException;
 import java.util.List;
@@ -101,6 +110,7 @@ final class FirebaseRemoteConfigClientImpl implements FirebaseRemoteConfigClient
   }
 
   @Override
+  <<<<<<< mrschmidt-errormsg
   <<<<<<< rpb/hacky-auth-bypass
   public RemoteConfigTemplate getTemplate() throws FirebaseRemoteConfigException {
     HttpRequestInfo request = HttpRequestInfo.buildGetRequest(remoteConfigUrl)
@@ -109,6 +119,8 @@ final class FirebaseRemoteConfigClientImpl implements FirebaseRemoteConfigClient
     RemoteConfigTemplate parsed = httpClient.parse(response, RemoteConfigTemplate.class);
     return parsed.setETag(getETag(response));
   =======
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
   public Template getTemplate() throws FirebaseRemoteConfigException {
     HttpRequestInfo request = HttpRequestInfo.buildGetRequest(remoteConfigUrl)
             .addAllHeaders(COMMON_HEADERS);
@@ -118,6 +130,7 @@ final class FirebaseRemoteConfigClientImpl implements FirebaseRemoteConfigClient
     return template.setETag(getETag(response));
   }
 
+  <<<<<<< mrschmidt-errormsg
   @Override
   public Template getTemplateAtVersion(
           @NonNull String versionNumber) throws FirebaseRemoteConfigException {
@@ -181,6 +194,8 @@ final class FirebaseRemoteConfigClientImpl implements FirebaseRemoteConfigClient
   >>>>>>> chong-shao-typo-fix
   }
 
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
   private String getETag(IncomingHttpResponse response) {
     List<String> etagList = (List<String>) response.getHeaders().get("etag");
     checkState(etagList != null && !etagList.isEmpty(),

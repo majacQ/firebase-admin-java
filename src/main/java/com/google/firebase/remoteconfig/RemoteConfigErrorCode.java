@@ -30,6 +30,7 @@ public enum RemoteConfigErrorCode {
    * Internal server error.
    */
   INTERNAL,
+  <<<<<<< mrschmidt-errormsg
   <<<<<<< rpb/hacky-auth-bypass
   =======
 
@@ -60,4 +61,6 @@ public enum RemoteConfigErrorCode {
    */
   VERSION_MISMATCH,
   >>>>>>> chong-shao-typo-fix
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
 }

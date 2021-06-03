@@ -25,7 +25,10 @@ import com.google.firebase.remoteconfig.internal.TemplateResponse.ParameterValue
 
 import java.util.HashMap;
 import java.util.Map;
+  <<<<<<< mrschmidt-errormsg
 import java.util.Objects;
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
 
 /**
  * Represents a Remote Config parameter that can be included in a {@link Template}.
@@ -74,7 +77,11 @@ public final class Parameter {
   /**
    * Gets the description of the parameter.
    *
+  <<<<<<< mrschmidt-errormsg
    * @return The description of the parameter or null.
+  =======
+   * @return The {@link String} description of the parameter or null.
+  >>>>>>> mrschmidt-transactiondataloss
    */
   @Nullable
   public String getDescription() {
@@ -145,6 +152,7 @@ public final class Parameter {
             .setDescription(description)
             .setConditionalValues(conditionalResponseValues);
   }
+  <<<<<<< mrschmidt-errormsg
 
   @Override
   public boolean equals(Object o) {
@@ -164,4 +172,6 @@ public final class Parameter {
   public int hashCode() {
     return Objects.hash(defaultValue, description, conditionalValues);
   }
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
 }

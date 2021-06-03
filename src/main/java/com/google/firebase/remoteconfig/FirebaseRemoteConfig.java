@@ -24,10 +24,13 @@ import com.google.firebase.FirebaseApp;
 import com.google.firebase.ImplFirebaseTrampolines;
 import com.google.firebase.internal.CallableOperation;
 import com.google.firebase.internal.FirebaseService;
+  <<<<<<< mrschmidt-errormsg
   <<<<<<< rpb/hacky-auth-bypass
   =======
 import com.google.firebase.internal.NonNull;
   >>>>>>> chong-shao-typo-fix
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
 
 /**
  * This class is the entry point for all server-side Firebase Remote Config actions.
@@ -77,23 +80,30 @@ public final class FirebaseRemoteConfig {
   /**
    * Gets the current active version of the Remote Config template.
    *
+  <<<<<<< mrschmidt-errormsg
   <<<<<<< rpb/hacky-auth-bypass
    * @return A {@link RemoteConfigTemplate}.
    * @throws FirebaseRemoteConfigException If an error occurs while getting the template.
    */
   public RemoteConfigTemplate getTemplate() throws FirebaseRemoteConfigException {
   =======
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
    * @return A {@link Template}.
    * @throws FirebaseRemoteConfigException If an error occurs while getting the template.
    */
   public Template getTemplate() throws FirebaseRemoteConfigException {
+  <<<<<<< mrschmidt-errormsg
   >>>>>>> chong-shao-typo-fix
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
     return getTemplateOp().call();
   }
 
   /**
    * Similar to {@link #getTemplate()} but performs the operation asynchronously.
    *
+  <<<<<<< mrschmidt-errormsg
   <<<<<<< rpb/hacky-auth-bypass
    * @return An {@code ApiFuture} that completes with a {@link RemoteConfigTemplate} when
    *      the template is available.
@@ -108,6 +118,8 @@ public final class FirebaseRemoteConfig {
       @Override
       protected RemoteConfigTemplate execute() throws FirebaseRemoteConfigException {
   =======
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
    * @return An {@code ApiFuture} that completes with a {@link Template} when
    *      the template is available.
    */
@@ -120,12 +132,16 @@ public final class FirebaseRemoteConfig {
     return new CallableOperation<Template, FirebaseRemoteConfigException>() {
       @Override
       protected Template execute() throws FirebaseRemoteConfigException {
+  <<<<<<< mrschmidt-errormsg
   >>>>>>> chong-shao-typo-fix
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
         return remoteConfigClient.getTemplate();
       }
     };
   }
 
+  <<<<<<< mrschmidt-errormsg
   <<<<<<< rpb/hacky-auth-bypass
   =======
   /**
@@ -422,6 +438,8 @@ public final class FirebaseRemoteConfig {
   }
 
   >>>>>>> chong-shao-typo-fix
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
   @VisibleForTesting
   FirebaseRemoteConfigClient getRemoteConfigClient() {
     return remoteConfigClient;

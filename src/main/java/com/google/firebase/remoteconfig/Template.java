@@ -16,6 +16,7 @@
 
 package com.google.firebase.remoteconfig;
 
+  <<<<<<< mrschmidt-errormsg
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -32,6 +33,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+  =======
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.google.firebase.internal.NonNull;
+import com.google.firebase.remoteconfig.internal.TemplateResponse;
+
+import java.util.HashMap;
+import java.util.Map;
+  >>>>>>> mrschmidt-transactiondataloss
 
 /**
  * Represents a Remote Config template.
@@ -40,6 +50,7 @@ public final class Template {
 
   private String etag;
   private Map<String, Parameter> parameters;
+  <<<<<<< mrschmidt-errormsg
   private List<Condition> conditions;
   private Map<String, ParameterGroup> parameterGroups;
   private Version version;
@@ -58,19 +69,31 @@ public final class Template {
 
   Template() {
     this((String) null);
+  =======
+
+  /**
+   * Creates a new {@link Template}.
+   */
+  public Template() {
+    parameters = new HashMap<>();
+  >>>>>>> mrschmidt-transactiondataloss
   }
 
   Template(@NonNull TemplateResponse templateResponse) {
     checkNotNull(templateResponse);
     this.parameters = new HashMap<>();
+  <<<<<<< mrschmidt-errormsg
     this.conditions = new ArrayList<>();
     this.parameterGroups = new HashMap<>();
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
     if (templateResponse.getParameters() != null) {
       for (Map.Entry<String, TemplateResponse.ParameterResponse> entry
               : templateResponse.getParameters().entrySet()) {
         this.parameters.put(entry.getKey(), new Parameter(entry.getValue()));
       }
     }
+  <<<<<<< mrschmidt-errormsg
     if (templateResponse.getConditions() != null) {
       for (TemplateResponse.ConditionResponse conditionResponse
               : templateResponse.getConditions()) {
@@ -109,6 +132,8 @@ public final class Template {
       throw new FirebaseRemoteConfigException(ErrorCode.INVALID_ARGUMENT,
               "Unable to parse JSON string.");
     }
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
   }
 
   /**
@@ -132,6 +157,7 @@ public final class Template {
   }
 
   /**
+  <<<<<<< mrschmidt-errormsg
    * Gets the list of conditions of the template.
    *
    * @return A non-null list of conditions.
@@ -161,6 +187,8 @@ public final class Template {
   }
 
   /**
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
    * Sets the map of parameters of the template.
    *
    * @param parameters A non-null map of parameter keys to their optional default values and
@@ -174,6 +202,7 @@ public final class Template {
     return this;
   }
 
+  <<<<<<< mrschmidt-errormsg
   /**
    * Sets the list of conditions of the template.
    *
@@ -227,11 +256,14 @@ public final class Template {
     }
   }
 
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
   Template setETag(String etag) {
     this.etag = etag;
     return this;
   }
 
+  <<<<<<< mrschmidt-errormsg
   TemplateResponse toTemplateResponse(boolean includeAll) {
     Map<String, TemplateResponse.ParameterResponse> parameterResponses = new HashMap<>();
     for (Map.Entry<String, Parameter> entry : this.parameters.entrySet()) {
@@ -277,5 +309,13 @@ public final class Template {
   @Override
   public int hashCode() {
     return Objects.hash(etag, parameters, conditions, parameterGroups, version);
+  =======
+  TemplateResponse toTemplateResponse() {
+    Map<String, TemplateResponse.ParameterResponse> parameterResponses = new HashMap<>();
+    for (Map.Entry<String, Parameter> entry : parameters.entrySet()) {
+      parameterResponses.put(entry.getKey(), entry.getValue().toParameterResponse());
+    }
+    return new TemplateResponse().setParameters(parameterResponses);
+  >>>>>>> mrschmidt-transactiondataloss
   }
 }

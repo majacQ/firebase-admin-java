@@ -16,6 +16,7 @@
 
 package com.google.firebase.remoteconfig;
 
+  <<<<<<< mrschmidt-errormsg
   <<<<<<< rpb/hacky-auth-bypass
 public class MockRemoteConfigClient implements FirebaseRemoteConfigClient{
 
@@ -52,10 +53,21 @@ public class MockRemoteConfigClient implements FirebaseRemoteConfigClient{
                                  FirebaseRemoteConfigException exception) {
     this.resultTemplate = resultTemplate;
     this.listVersionsResponse = listVersionsResponse;
+  =======
+public class MockRemoteConfigClient implements FirebaseRemoteConfigClient{
+
+  private Template resultTemplate;
+  private FirebaseRemoteConfigException exception;
+
+  private MockRemoteConfigClient(Template resultTemplate,
+                                 FirebaseRemoteConfigException exception) {
+    this.resultTemplate = resultTemplate;
+  >>>>>>> mrschmidt-transactiondataloss
     this.exception = exception;
   }
 
   static MockRemoteConfigClient fromTemplate(Template resultTemplate) {
+  <<<<<<< mrschmidt-errormsg
     return new MockRemoteConfigClient(resultTemplate, null, null);
   }
 
@@ -66,6 +78,13 @@ public class MockRemoteConfigClient implements FirebaseRemoteConfigClient{
 
   static MockRemoteConfigClient fromException(FirebaseRemoteConfigException exception) {
     return new MockRemoteConfigClient(null, null, exception);
+  =======
+    return new MockRemoteConfigClient(resultTemplate, null);
+  }
+
+  static MockRemoteConfigClient fromException(FirebaseRemoteConfigException exception) {
+    return new MockRemoteConfigClient(null, exception);
+  >>>>>>> mrschmidt-transactiondataloss
   }
 
   @Override
@@ -75,6 +94,7 @@ public class MockRemoteConfigClient implements FirebaseRemoteConfigClient{
     }
     return resultTemplate;
   }
+  <<<<<<< mrschmidt-errormsg
 
   @Override
   public Template getTemplateAtVersion(String versionNumber) throws FirebaseRemoteConfigException {
@@ -113,4 +133,6 @@ public class MockRemoteConfigClient implements FirebaseRemoteConfigClient{
     return listVersionsResponse;
   }
   >>>>>>> chong-shao-typo-fix
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
 }

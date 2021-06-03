@@ -16,11 +16,14 @@
 
 package com.google.firebase.remoteconfig;
 
+  <<<<<<< mrschmidt-errormsg
   <<<<<<< rpb/hacky-auth-bypass
   =======
 import com.google.firebase.remoteconfig.internal.TemplateResponse.ListVersionsResponse;
 
   >>>>>>> chong-shao-typo-fix
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
 /**
  * An interface for managing Firebase Remote Config templates.
  */
@@ -29,16 +32,20 @@ interface FirebaseRemoteConfigClient {
   /**
    * Gets the current active version of the Remote Config template.
    *
+  <<<<<<< mrschmidt-errormsg
   <<<<<<< rpb/hacky-auth-bypass
    * @return A {@link RemoteConfigTemplate}.
    * @throws FirebaseRemoteConfigException If an error occurs while getting the template.
    */
   RemoteConfigTemplate getTemplate() throws FirebaseRemoteConfigException;
   =======
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
    * @return A {@link Template}.
    * @throws FirebaseRemoteConfigException If an error occurs while getting the template.
    */
   Template getTemplate() throws FirebaseRemoteConfigException;
+  <<<<<<< mrschmidt-errormsg
 
   Template getTemplateAtVersion(String versionNumber) throws FirebaseRemoteConfigException;
 
@@ -50,4 +57,6 @@ interface FirebaseRemoteConfigClient {
   ListVersionsResponse listVersions(
           ListVersionsOptions options) throws FirebaseRemoteConfigException;
   >>>>>>> chong-shao-typo-fix
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
 }

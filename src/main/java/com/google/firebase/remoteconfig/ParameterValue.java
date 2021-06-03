@@ -21,8 +21,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.firebase.internal.NonNull;
 import com.google.firebase.remoteconfig.internal.TemplateResponse.ParameterValueResponse;
 
+  <<<<<<< mrschmidt-errormsg
 import java.util.Objects;
 
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
 /**
  * Represents a Remote Config parameter value that can be used in a {@link Template}.
  */
@@ -59,7 +62,11 @@ public abstract class ParameterValue {
   }
 
   /**
+  <<<<<<< mrschmidt-errormsg
    * Represents an explicit Remote Config parameter value with a value that the
+  =======
+   * Represents an explicit Remote Config parameter value with a {@link String} value that the
+  >>>>>>> mrschmidt-transactiondataloss
    * parameter is set to.
    */
   public static final class Explicit extends ParameterValue {
@@ -73,7 +80,11 @@ public abstract class ParameterValue {
     /**
      * Gets the value of {@link ParameterValue.Explicit}.
      *
+  <<<<<<< mrschmidt-errormsg
      * @return The value.
+  =======
+     * @return The {@link String} value.
+  >>>>>>> mrschmidt-transactiondataloss
      */
     public String getValue() {
       return this.value;
@@ -84,6 +95,7 @@ public abstract class ParameterValue {
       return new ParameterValueResponse()
               .setValue(this.value);
     }
+  <<<<<<< mrschmidt-errormsg
 
     @Override
     public boolean equals(Object o) {
@@ -101,6 +113,8 @@ public abstract class ParameterValue {
     public int hashCode() {
       return Objects.hash(value);
     }
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
   }
 
   /**
@@ -112,6 +126,7 @@ public abstract class ParameterValue {
     ParameterValueResponse toParameterValueResponse() {
       return new ParameterValueResponse().setUseInAppDefault(true);
     }
+  <<<<<<< mrschmidt-errormsg
 
     @Override
     public boolean equals(Object o) {
@@ -123,5 +138,7 @@ public abstract class ParameterValue {
       }
       return true;
     }
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
   }
 }

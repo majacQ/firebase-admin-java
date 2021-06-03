@@ -7,7 +7,12 @@
     },
     {
       "name": "android_en",
+  <<<<<<< mrschmidt-errormsg
       "expression": "device.os == 'android' && device.country in ['us', 'uk']"
+  =======
+      "expression": "device.os == 'android' && device.country in ['us', 'uk']",
+      "tagColor": "GREEN"
+  >>>>>>> mrschmidt-transactiondataloss
     }
   ],
   "parameters": {
@@ -28,6 +33,7 @@
       }
     }
   },
+  <<<<<<< mrschmidt-errormsg
   "parameterGroups": {
     "new menu": {
       "description": "New Menu",
@@ -41,16 +47,25 @@
       }
     }
   },
+  =======
+  "parameterGroups": {},
+  >>>>>>> mrschmidt-transactiondataloss
   "version": {
     "versionNumber": "17",
     "updateOrigin": "ADMIN_SDK_NODE",
     "updateType": "INCREMENTAL_UPDATE",
     "updateUser": {
+  <<<<<<< mrschmidt-errormsg
       "email": "firebase-user@account.com",
       "name": "dev-admin",
       "imageUrl": "http://image.jpg"
     },
     "updateTime": "2020-11-15T06:57:26.342763941Z",
     "description": "promo config"
+  =======
+      "email": "firebase-user@account.com"
+    },
+    "updateTime": "Wed, 30 Sep 2020 17:56:07 GMT"
+  >>>>>>> mrschmidt-transactiondataloss
   }
 }

@@ -27,6 +27,7 @@ import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import com.google.firebase.TestOnlyImplFirebaseTrampolines;
 import com.google.firebase.auth.MockGoogleCredentials;
+  <<<<<<< mrschmidt-errormsg
   <<<<<<< rpb/hacky-auth-bypass
 import java.util.concurrent.ExecutionException;
   =======
@@ -36,6 +37,9 @@ import com.google.firebase.remoteconfig.internal.TemplateResponse;
 import java.util.concurrent.ExecutionException;
 
   >>>>>>> chong-shao-typo-fix
+  =======
+import java.util.concurrent.ExecutionException;
+  >>>>>>> mrschmidt-transactiondataloss
 import org.junit.After;
 import org.junit.Test;
 
@@ -121,6 +125,7 @@ public class FirebaseRemoteConfigTest {
 
   private static final String TEST_ETAG = "etag-123456789012-1";
 
+  <<<<<<< mrschmidt-errormsg
   <<<<<<< rpb/hacky-auth-bypass
   @Test
   public void testGetTemplate() throws FirebaseRemoteConfigException {
@@ -132,6 +137,8 @@ public class FirebaseRemoteConfigTest {
   =======
   // Get template tests
 
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
   @Test
   public void testGetTemplate() throws FirebaseRemoteConfigException {
     MockRemoteConfigClient client = MockRemoteConfigClient.fromTemplate(
@@ -139,7 +146,10 @@ public class FirebaseRemoteConfigTest {
     FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
 
     Template template = remoteConfig.getTemplate();
+  <<<<<<< mrschmidt-errormsg
   >>>>>>> chong-shao-typo-fix
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
 
     assertEquals(TEST_ETAG, template.getETag());
   }
@@ -159,17 +169,23 @@ public class FirebaseRemoteConfigTest {
   @Test
   public void testGetTemplateAsync() throws Exception {
     MockRemoteConfigClient client = MockRemoteConfigClient.fromTemplate(
+  <<<<<<< mrschmidt-errormsg
   <<<<<<< rpb/hacky-auth-bypass
             new RemoteConfigTemplate().setETag(TEST_ETAG));
     FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
 
     RemoteConfigTemplate template = remoteConfig.getTemplateAsync().get();
   =======
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
             new Template().setETag(TEST_ETAG));
     FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
 
     Template template = remoteConfig.getTemplateAsync().get();
+  <<<<<<< mrschmidt-errormsg
   >>>>>>> chong-shao-typo-fix
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
 
     assertEquals(TEST_ETAG, template.getETag());
   }
@@ -186,6 +202,7 @@ public class FirebaseRemoteConfigTest {
     }
   }
 
+  <<<<<<< mrschmidt-errormsg
   <<<<<<< rpb/hacky-auth-bypass
   =======
   // Get template with version number tests
@@ -617,6 +634,8 @@ public class FirebaseRemoteConfigTest {
   }
 
   >>>>>>> chong-shao-typo-fix
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
   private FirebaseRemoteConfig getRemoteConfig(FirebaseRemoteConfigClient client) {
     FirebaseApp app = FirebaseApp.initializeApp(TEST_OPTIONS);
     return new FirebaseRemoteConfig(app, client);

@@ -38,6 +38,7 @@ public final class RemoteConfigServiceErrorResponse extends GenericJson {
           ImmutableMap.<String, RemoteConfigErrorCode>builder()
                   .put("INTERNAL", RemoteConfigErrorCode.INTERNAL)
                   .put("INVALID_ARGUMENT", RemoteConfigErrorCode.INVALID_ARGUMENT)
+  <<<<<<< mrschmidt-errormsg
   <<<<<<< rpb/hacky-auth-bypass
   =======
                   .put("FAILED_PRECONDITION", RemoteConfigErrorCode.FAILED_PRECONDITION)
@@ -46,6 +47,8 @@ public final class RemoteConfigServiceErrorResponse extends GenericJson {
                   .put("VALIDATION_ERROR", RemoteConfigErrorCode.VALIDATION_ERROR)
                   .put("VERSION_MISMATCH", RemoteConfigErrorCode.VERSION_MISMATCH)
   >>>>>>> chong-shao-typo-fix
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
                   .build();
 
   private static final Pattern RC_ERROR_CODE_PATTERN = Pattern.compile("^\\[(\\w+)\\]:.*$");

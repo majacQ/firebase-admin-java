@@ -18,7 +18,10 @@ package com.google.firebase.remoteconfig.internal;
 
 import com.google.api.client.util.Key;
 
+  <<<<<<< mrschmidt-errormsg
 import java.util.List;
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
 import java.util.Map;
 
 /**
@@ -30,6 +33,7 @@ public final class TemplateResponse {
   @Key("parameters")
   private Map<String, ParameterResponse> parameters;
 
+  <<<<<<< mrschmidt-errormsg
   @Key("conditions")
   private List<ConditionResponse> conditions;
 
@@ -44,10 +48,13 @@ public final class TemplateResponse {
   @Key("etag")
   private String etag;
 
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
   public Map<String, ParameterResponse> getParameters() {
     return parameters;
   }
 
+  <<<<<<< mrschmidt-errormsg
   public List<ConditionResponse> getConditions() {
     return conditions;
   }
@@ -64,12 +71,15 @@ public final class TemplateResponse {
     return etag;
   }
 
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
   public TemplateResponse setParameters(
           Map<String, ParameterResponse> parameters) {
     this.parameters = parameters;
     return this;
   }
 
+  <<<<<<< mrschmidt-errormsg
   public TemplateResponse setConditions(
           List<ConditionResponse> conditions) {
     this.conditions = conditions;
@@ -92,6 +102,8 @@ public final class TemplateResponse {
     return this;
   }
 
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
   /**
    * The Data Transfer Object for parsing Remote Config parameter responses from the
    * Remote Config service.
@@ -167,6 +179,7 @@ public final class TemplateResponse {
       return this;
     }
   }
+  <<<<<<< mrschmidt-errormsg
 
   /**
    * The Data Transfer Object for parsing Remote Config condition responses from the
@@ -421,4 +434,6 @@ public final class TemplateResponse {
       return this;
     }
   }
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
 }

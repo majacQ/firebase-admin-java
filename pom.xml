@@ -442,11 +442,14 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
+  <<<<<<< mrschmidt-errormsg
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
             <version>1.7.25</version>
+  =======
+  >>>>>>> mrschmidt-transactiondataloss
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
