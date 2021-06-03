@@ -25,7 +25,6 @@ import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.google.api.client.googleapis.util.Utils;
 import com.google.api.client.http.GenericUrl;
 import com.google.api.client.http.HttpHeaders;
 import com.google.api.client.http.HttpRequest;
@@ -39,6 +38,7 @@ import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.firebase.ErrorCode;
 import com.google.firebase.FirebaseApp;
@@ -47,6 +47,7 @@ import com.google.firebase.TestOnlyImplFirebaseTrampolines;
 import com.google.firebase.auth.FirebaseUserManager.EmailLinkType;
 import com.google.firebase.auth.multitenancy.TenantAwareFirebaseAuth;
 import com.google.firebase.auth.multitenancy.TenantManager;
+import com.google.firebase.internal.ApiClientUtils;
 import com.google.firebase.internal.SdkUtils;
 import com.google.firebase.testing.MultiRequestMockHttpTransport;
 import com.google.firebase.testing.TestResponseInterceptor;
@@ -66,7 +67,7 @@ import org.junit.Test;
 
 public class FirebaseUserManagerTest {
 
-  private static final JsonFactory JSON_FACTORY = Utils.getDefaultJsonFactory();
+  private static final JsonFactory JSON_FACTORY = ApiClientUtils.getDefaultJsonFactory();
 
   private static final String TEST_TOKEN = "token";
 
@@ -84,18 +85,33 @@ public class FirebaseUserManagerTest {
 
   private static final Map<String, Object> ACTION_CODE_SETTINGS_MAP =
           ACTION_CODE_SETTINGS.getProperties();
+  private static final UserProvider USER_PROVIDER = UserProvider.builder()
+        .setUid("testuid")
+        .setProviderId("facebook.com")
+        .setEmail("test@example.com")
+        .setDisplayName("Test User")
+        .setPhotoUrl("https://test.com/user.png")
+        .build();
 
   private static final String PROJECT_BASE_URL =
       "https://identitytoolkit.googleapis.com/v2/projects/test-project-id";
 
   private static final String TENANTS_BASE_URL = PROJECT_BASE_URL + "/tenants";
 
+  <<<<<<< v7
+  =======
+  private static final String AUTH_EMULATOR = "localhost:8000";
+  private static final String PROJECT_BASE_URL_EMULATOR =
+          "http://" + AUTH_EMULATOR + "/identitytoolkit.googleapis.com/v2/projects/test-project-id";
+
+  >>>>>>> master
   private static final String SAML_RESPONSE = TestUtils.loadResource("saml.json");
 
   private static final String OIDC_RESPONSE = TestUtils.loadResource("oidc.json");
 
   @After
   public void tearDown() {
+    TestUtils.unsetEnvironmentVariables(ImmutableSet.of("FIREBASE_AUTH_EMULATOR_HOST"));
     TestOnlyImplFirebaseTrampolines.clearInstancesForTest();
   }
 
@@ -347,6 +363,56 @@ public class FirebaseUserManagerTest {
     } catch (IllegalArgumentException expected) {
       // expected
     }
+  }
+
+  @Test
+  public void testGetUserByProviderUidWithInvalidProviderId() throws Exception {
+    initializeAppForUserManagement();
+    try {
+      FirebaseAuth.getInstance().getUserByProviderUidAsync("", "uid").get();
+      fail("No error thrown for invalid request");
+    } catch (IllegalArgumentException expected) {
+    }
+  }
+
+  @Test
+  public void testGetUserByProviderUidWithInvalidProviderUid() throws Exception {
+    initializeAppForUserManagement();
+    try {
+      FirebaseAuth.getInstance().getUserByProviderUidAsync("id", "").get();
+      fail("No error thrown for invalid request");
+    } catch (IllegalArgumentException expected) {
+    }
+  }
+
+  @Test
+  public void testGetUserByProviderUidWithValidInput() throws Exception {
+    TestResponseInterceptor interceptor = initializeAppForUserManagement(
+        TestUtils.loadResource("getUser.json"));
+    UserRecord userRecord = FirebaseAuth.getInstance()
+        .getUserByProviderUidAsync("google.com", "google_uid").get();
+    checkUserRecord(userRecord);
+    checkRequestHeaders(interceptor);
+  }
+
+  @Test
+  public void testGetUserByProviderUidWithPhone() throws Exception {
+    TestResponseInterceptor interceptor = initializeAppForUserManagement(
+        TestUtils.loadResource("getUser.json"));
+    UserRecord userRecord = FirebaseAuth.getInstance()
+        .getUserByProviderUidAsync("phone", "+1234567890").get();
+    checkUserRecord(userRecord);
+    checkRequestHeaders(interceptor);
+  }
+
+  @Test
+  public void testGetUserByProviderUidWithEmail() throws Exception {
+    TestResponseInterceptor interceptor = initializeAppForUserManagement(
+        TestUtils.loadResource("getUser.json"));
+    UserRecord userRecord = FirebaseAuth.getInstance()
+        .getUserByProviderUidAsync("email", "testuser@example.com").get();
+    checkUserRecord(userRecord);
+    checkRequestHeaders(interceptor);
   }
 
   @Test
@@ -1091,8 +1157,10 @@ public class FirebaseUserManagerTest {
         .setEmailVerified(true)
         .setPassword("secret")
         .setCustomClaims(claims)
+        .setProviderToLink(USER_PROVIDER)
+        .setProvidersToUnlink(ImmutableList.of("google.com"))
         .getProperties(JSON_FACTORY);
-    assertEquals(8, map.size());
+    assertEquals(10, map.size());
     assertEquals(update.getUid(), map.get("localId"));
     assertEquals("Display Name", map.get("displayName"));
     assertEquals("http://test.com/example.png", map.get("photoUrl"));
@@ -1101,6 +1169,8 @@ public class FirebaseUserManagerTest {
     assertTrue((Boolean) map.get("emailVerified"));
     assertEquals("secret", map.get("password"));
     assertEquals(JSON_FACTORY.toString(claims), map.get("customAttributes"));
+    assertEquals(USER_PROVIDER, map.get("linkProviderUserInfo"));
+    assertEquals(ImmutableList.of("google.com"), map.get("deleteProvider"));
   }
 
   @Test
@@ -1136,6 +1206,64 @@ public class FirebaseUserManagerTest {
     assertEquals(2, map.size());
     assertEquals(update.getUid(), map.get("localId"));
     assertEquals("{}", map.get("customAttributes"));
+  }
+
+  @Test
+  public void testLinkProvider() {
+    UserRecord.UpdateRequest update = new UserRecord.UpdateRequest("test");
+    Map<String, Object> map = update
+        .setProviderToLink(USER_PROVIDER)
+        .getProperties(ApiClientUtils.getDefaultJsonFactory());
+    assertEquals(2, map.size());
+    assertEquals(update.getUid(), map.get("localId"));
+    assertEquals(USER_PROVIDER, map.get("linkProviderUserInfo"));
+  }
+
+  @Test
+  public void testDeleteProvider() {
+    UserRecord.UpdateRequest update = new UserRecord.UpdateRequest("test");
+    Map<String, Object> map = update
+        .setProvidersToUnlink(ImmutableList.of("google.com"))
+        .getProperties(ApiClientUtils.getDefaultJsonFactory());
+    assertEquals(2, map.size());
+    assertEquals(update.getUid(), map.get("localId"));
+    assertEquals(ImmutableList.of("google.com"), map.get("deleteProvider"));
+  }
+
+  @Test
+  public void testDeleteProviderAndPhone() {
+    UserRecord.UpdateRequest update = new UserRecord.UpdateRequest("test");
+    Map<String, Object> map = update
+        .setProvidersToUnlink(ImmutableList.of("google.com"))
+        .setPhoneNumber(null)
+        .getProperties(ApiClientUtils.getDefaultJsonFactory());
+    assertEquals(2, map.size());
+    assertEquals(update.getUid(), map.get("localId"));
+    assertEquals(ImmutableList.of("google.com", "phone"), map.get("deleteProvider"));
+  }
+
+  @Test
+  public void testDoubleDeletePhoneProvider() throws Exception {
+    UserRecord.UpdateRequest update = new UserRecord.UpdateRequest("uid")
+        .setPhoneNumber(null);
+
+    try {
+      update.setProvidersToUnlink(ImmutableList.of("phone"));
+      fail("No error thrown for double delete phone provider");
+    } catch (IllegalArgumentException expected) {
+    }
+  }
+
+  @Test
+  public void testDoubleDeletePhoneProviderReverseOrder() throws Exception {
+    UserRecord.UpdateRequest update = new UserRecord.UpdateRequest("uid")
+        .setProvidersToUnlink(ImmutableList.of("phone"));
+
+    try {
+      update.setPhoneNumber(null);
+      fail("No error thrown for double delete phone provider");
+    } catch (IllegalArgumentException expected) {
+    }
   }
 
   @Test
@@ -1459,6 +1587,30 @@ public class FirebaseUserManagerTest {
       assertNull(e.getAuthErrorCode());
       assertTrue(e.getCause() instanceof HttpResponseException);
       assertNotNull(e.getHttpResponse());
+  <<<<<<< v7
+  =======
+    }
+  }
+
+  @Test
+  public void testHttpErrorWithEmailNotFoundCode() {
+    MockLowLevelHttpResponse response = new MockLowLevelHttpResponse()
+        .setContent("{\"error\": {\"message\": \"EMAIL_NOT_FOUND\"}}")
+        .setStatusCode(400);
+    FirebaseAuth auth = getRetryDisabledAuth(response);
+    FirebaseUserManager userManager = auth.getUserManager();
+    try {
+      userManager.getEmailActionLink(EmailLinkType.PASSWORD_RESET, "test@example.com", null);
+      fail("No exception thrown for HTTP error");
+    } catch (FirebaseAuthException e) {
+      assertEquals(ErrorCode.NOT_FOUND, e.getErrorCode());
+      assertEquals(
+          "No user record found for the given email (EMAIL_NOT_FOUND).",
+          e.getMessage());
+      assertEquals(AuthErrorCode.EMAIL_NOT_FOUND, e.getAuthErrorCode());
+      assertTrue(e.getCause() instanceof HttpResponseException);
+      assertNotNull(e.getHttpResponse());
+  >>>>>>> master
     }
   }
 
@@ -1490,7 +1642,10 @@ public class FirebaseUserManagerTest {
             .setDisplayName("DISPLAY_NAME")
             .setEnabled(true)
             .setClientId("CLIENT_ID")
-            .setIssuer("https://oidc.com/issuer");
+            .setClientSecret("CLIENT_SECRET")
+            .setIssuer("https://oidc.com/issuer")
+            .setCodeResponseType(true)
+            .setIdTokenResponseType(true);
 
     OidcProviderConfig config = FirebaseAuth.getInstance().createOidcProviderConfig(createRequest);
 
@@ -1501,7 +1656,13 @@ public class FirebaseUserManagerTest {
     assertEquals("DISPLAY_NAME", parsed.get("displayName"));
     assertTrue((boolean) parsed.get("enabled"));
     assertEquals("CLIENT_ID", parsed.get("clientId"));
+    assertEquals("CLIENT_SECRET", parsed.get("clientSecret"));
     assertEquals("https://oidc.com/issuer", parsed.get("issuer"));
+
+    Map<String, Boolean> responseType = (Map<String, Boolean>) parsed.get("responseType");
+    assertTrue(responseType.get("code"));
+    assertTrue(responseType.get("idToken"));
+
     GenericUrl url = interceptor.getResponse().getRequest().getUrl();
     assertEquals("oidc.provider-id", url.getFirst("oauthIdpConfigId"));
   }
@@ -1515,9 +1676,12 @@ public class FirebaseUserManagerTest {
             .setDisplayName("DISPLAY_NAME")
             .setEnabled(true)
             .setClientId("CLIENT_ID")
-            .setIssuer("https://oidc.com/issuer");
+            .setClientSecret("CLIENT_SECRET")
+            .setIssuer("https://oidc.com/issuer")
+            .setCodeResponseType(true)
+            .setIdTokenResponseType(true);
 
-    OidcProviderConfig config = 
+    OidcProviderConfig config =
         FirebaseAuth.getInstance().createOidcProviderConfigAsync(createRequest).get();
 
     checkOidcProviderConfig(config, "oidc.provider-id");
@@ -1527,7 +1691,13 @@ public class FirebaseUserManagerTest {
     assertEquals("DISPLAY_NAME", parsed.get("displayName"));
     assertTrue((boolean) parsed.get("enabled"));
     assertEquals("CLIENT_ID", parsed.get("clientId"));
+    assertEquals("CLIENT_SECRET", parsed.get("clientSecret"));
     assertEquals("https://oidc.com/issuer", parsed.get("issuer"));
+
+    Map<String, Boolean> responseType = (Map<String, Boolean>) parsed.get("responseType");
+    assertTrue(responseType.get("code"));
+    assertTrue(responseType.get("idToken"));
+
     GenericUrl url = interceptor.getResponse().getRequest().getUrl();
     assertEquals("oidc.provider-id", url.getFirst("oauthIdpConfigId"));
   }
@@ -1730,7 +1900,10 @@ public class FirebaseUserManagerTest {
             .setDisplayName("DISPLAY_NAME")
             .setEnabled(true)
             .setClientId("CLIENT_ID")
-            .setIssuer("https://oidc.com/issuer");
+            .setClientSecret("CLIENT_SECRET")
+            .setIssuer("https://oidc.com/issuer")
+            .setCodeResponseType(true)
+            .setIdTokenResponseType(true);
 
     OidcProviderConfig config = tenantAwareAuth.updateOidcProviderConfig(request);
 
@@ -1739,12 +1912,18 @@ public class FirebaseUserManagerTest {
     String expectedUrl = TENANTS_BASE_URL + "/TENANT_ID/oauthIdpConfigs/oidc.provider-id";
     checkUrl(interceptor, "PATCH", expectedUrl);
     GenericUrl url = interceptor.getResponse().getRequest().getUrl();
-    assertEquals("clientId,displayName,enabled,issuer", url.getFirst("updateMask"));
+    assertEquals("clientId,clientSecret,displayName,enabled,issuer,responseType.code,"
+        + "responseType.idToken", url.getFirst("updateMask"));
     GenericJson parsed = parseRequestContent(interceptor);
     assertEquals("DISPLAY_NAME", parsed.get("displayName"));
     assertTrue((boolean) parsed.get("enabled"));
     assertEquals("CLIENT_ID", parsed.get("clientId"));
+    assertEquals("CLIENT_SECRET", parsed.get("clientSecret"));
     assertEquals("https://oidc.com/issuer", parsed.get("issuer"));
+
+    Map<String, Boolean> responseType = (Map<String, Boolean>) parsed.get("responseType");
+    assertTrue(responseType.get("code"));
+    assertTrue(responseType.get("idToken"));
   }
 
   @Test
@@ -2678,6 +2857,33 @@ public class FirebaseUserManagerTest {
     checkUrl(interceptor, "DELETE", expectedUrl);
   }
 
+  @Test
+  public void testCreateOidcProviderFromEmulatorAuth() throws Exception {
+    TestUtils.setEnvironmentVariables(
+            ImmutableMap.of("FIREBASE_AUTH_EMULATOR_HOST", AUTH_EMULATOR));
+    TestResponseInterceptor interceptor = initializeAppForUserManagement(OIDC_RESPONSE);
+    OidcProviderConfig.CreateRequest createRequest =
+            new OidcProviderConfig.CreateRequest()
+                    .setProviderId("oidc.provider-id")
+                    .setDisplayName("DISPLAY_NAME")
+                    .setEnabled(true)
+                    .setClientId("CLIENT_ID")
+                    .setIssuer("https://oidc.com/issuer");
+
+    OidcProviderConfig config = FirebaseAuth.getInstance().createOidcProviderConfig(createRequest);
+
+    checkOidcProviderConfig(config, "oidc.provider-id");
+    checkRequestHeaders(interceptor);
+    checkUrl(interceptor, "POST", PROJECT_BASE_URL_EMULATOR + "/oauthIdpConfigs");
+    GenericJson parsed = parseRequestContent(interceptor);
+    assertEquals("DISPLAY_NAME", parsed.get("displayName"));
+    assertTrue((boolean) parsed.get("enabled"));
+    assertEquals("CLIENT_ID", parsed.get("clientId"));
+    assertEquals("https://oidc.com/issuer", parsed.get("issuer"));
+    GenericUrl url = interceptor.getResponse().getRequest().getUrl();
+    assertEquals("oidc.provider-id", url.getFirst("oauthIdpConfigId"));
+  }
+
   private static TestResponseInterceptor initializeAppForUserManagementWithStatusCode(
       int statusCode, String response) {
     FirebaseApp.initializeApp(FirebaseOptions.builder()
@@ -2746,7 +2952,11 @@ public class FirebaseUserManagerTest {
             return FirebaseUserManager.builder()
                 .setProjectId("test-project-id")
                 .setHttpRequestFactory(transport.createRequestFactory())
+  <<<<<<< v7
                 .setJsonFactory(Utils.getDefaultJsonFactory())
+  =======
+                .setJsonFactory(ApiClientUtils.getDefaultJsonFactory())
+  >>>>>>> master
                 .build();
           }
           })
@@ -2761,7 +2971,7 @@ public class FirebaseUserManagerTest {
     assertEquals("http://www.example.com/testuser/photo.png", userRecord.getPhotoUrl());
     assertEquals(1234567890, userRecord.getUserMetadata().getCreationTimestamp());
     assertEquals(0, userRecord.getUserMetadata().getLastSignInTimestamp());
-    assertEquals(2, userRecord.getProviderData().length);
+    assertEquals(3, userRecord.getProviderData().length);
     assertFalse(userRecord.isDisabled());
     assertTrue(userRecord.isEmailVerified());
     assertEquals(1494364393000L, userRecord.getTokensValidAfterTimestamp());
@@ -2781,6 +2991,10 @@ public class FirebaseUserManagerTest {
     assertEquals("+1234567890", provider.getPhoneNumber());
     assertEquals("phone", provider.getProviderId());
 
+    provider = userRecord.getProviderData()[2];
+    assertEquals("google_uid", provider.getUid());
+    assertEquals("google.com", provider.getProviderId());
+
     Map<String, Object> claims = userRecord.getCustomClaims();
     assertEquals(2, claims.size());
     assertTrue((boolean) claims.get("admin"));
@@ -2792,7 +3006,10 @@ public class FirebaseUserManagerTest {
     assertEquals("DISPLAY_NAME", config.getDisplayName());
     assertTrue(config.isEnabled());
     assertEquals("CLIENT_ID", config.getClientId());
+    assertEquals("CLIENT_SECRET", config.getClientSecret());
     assertEquals("https://oidc.com/issuer", config.getIssuer());
+    assertTrue(config.isCodeResponseType());
+    assertFalse(config.isIdTokenResponseType());
   }
 
   private static void checkSamlProviderConfig(SamlProviderConfig config, String providerId) {
@@ -2824,5 +3041,5 @@ public class FirebaseUserManagerTest {
   private interface UserManagerOp {
     void call(FirebaseAuth auth) throws Exception;
   }
-
 }
+

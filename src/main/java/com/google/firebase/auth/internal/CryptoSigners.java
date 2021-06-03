@@ -22,6 +22,10 @@ import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseException;
 import com.google.firebase.ImplFirebaseTrampolines;
 import com.google.firebase.auth.FirebaseAuthException;
+  <<<<<<< v7
+  =======
+import com.google.firebase.auth.internal.Utils;
+  >>>>>>> master
 import com.google.firebase.internal.AbstractPlatformErrorHandler;
 import com.google.firebase.internal.ApiClientUtils;
 import com.google.firebase.internal.ErrorHandlingHttpClient;
@@ -65,13 +69,13 @@ public class CryptoSigners {
 
   /**
    * @ {@link CryptoSigner} implementation that uses the
-   * <a href="https://cloud.google.com/iam/reference/rest/v1/projects.serviceAccounts/signBlob">
-   * Google IAM service</a> to sign data.
+   * <a href=https://cloud.google.com/iam/docs/reference/credentials/rest/v1/projects.serviceAccounts/signBlob">
+   * Google IAMCredentials service</a> to sign data.
    */
   static class IAMCryptoSigner implements CryptoSigner {
 
     private static final String IAM_SIGN_BLOB_URL =
-        "https://iam.googleapis.com/v1/projects/-/serviceAccounts/%s:signBlob";
+        "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/%s:signBlob";
 
     private final String serviceAccount;
     private final ErrorHandlingHttpClient<FirebaseAuthException> httpClient;
@@ -95,11 +99,19 @@ public class CryptoSigners {
     @Override
     public byte[] sign(byte[] payload) throws FirebaseAuthException {
       String encodedPayload = BaseEncoding.base64().encode(payload);
+  <<<<<<< v7
       Map<String, String> content = ImmutableMap.of("bytesToSign", encodedPayload);
       String encodedUrl = String.format(IAM_SIGN_BLOB_URL, serviceAccount);
       HttpRequestInfo requestInfo = HttpRequestInfo.buildJsonPostRequest(encodedUrl, content);
       GenericJson parsed = httpClient.sendAndParse(requestInfo, GenericJson.class);
       return BaseEncoding.base64().decode((String) parsed.get("signature"));
+  =======
+      Map<String, String> content = ImmutableMap.of("payload", encodedPayload);
+      String encodedUrl = String.format(IAM_SIGN_BLOB_URL, serviceAccount);
+      HttpRequestInfo requestInfo = HttpRequestInfo.buildJsonPostRequest(encodedUrl, content);
+      GenericJson parsed = httpClient.sendAndParse(requestInfo, GenericJson.class);
+      return BaseEncoding.base64().decode((String) parsed.get("signedBlob"));
+  >>>>>>> master
     }
 
     @Override
@@ -108,6 +120,28 @@ public class CryptoSigners {
     }
   }
 
+  <<<<<<< v7
+  =======
+  /**
+   * A {@link CryptoSigner} implementation that doesn't sign data. For use with the Auth Emulator
+   * only
+   */
+  public static class EmulatorCryptoSigner implements CryptoSigner {
+
+    private static final String ACCOUNT = "firebase-auth-emulator@example.com";
+
+    @Override
+    public byte[] sign(byte[] payload) {
+      return "".getBytes();
+    }
+
+    @Override
+    public String getAccount() {
+      return ACCOUNT;
+    }
+  }
+
+  >>>>>>> master
   private static class IAMErrorHandler
       extends AbstractPlatformErrorHandler<FirebaseAuthException> {
 
@@ -126,6 +160,10 @@ public class CryptoSigners {
    * documented at go/firebase-admin-sign.
    */
   public static CryptoSigner getCryptoSigner(FirebaseApp firebaseApp) throws IOException {
+    if (Utils.isEmulatorMode()) {
+      return new EmulatorCryptoSigner();
+    }
+
     GoogleCredentials credentials = ImplFirebaseTrampolines.getCredentials(firebaseApp);
 
     // If the SDK was initialized with a service account, use it to sign bytes.

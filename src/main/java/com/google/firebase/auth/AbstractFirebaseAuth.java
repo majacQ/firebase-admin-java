@@ -18,7 +18,7 @@ package com.google.firebase.auth;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.firebase.auth.internal.Utils.isEmulatorMode;
 
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.util.Clock;
@@ -164,7 +164,6 @@ public abstract class AbstractFirebaseAuth {
 
   private CallableOperation<String, FirebaseAuthException> createCustomTokenOp(
       final String uid, final Map<String, Object> developerClaims) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(uid), "uid must not be null or empty");
     final FirebaseTokenFactory tokenFactory = this.tokenFactory.get();
     return new CallableOperation<String, FirebaseAuthException>() {
@@ -208,7 +207,6 @@ public abstract class AbstractFirebaseAuth {
 
   private CallableOperation<String, FirebaseAuthException> createSessionCookieOp(
       final String idToken, final SessionCookieOptions options) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(idToken), "idToken must not be null or empty");
     checkNotNull(options, "options must not be null");
     final FirebaseUserManager userManager = getUserManager();
@@ -299,7 +297,6 @@ public abstract class AbstractFirebaseAuth {
 
   private CallableOperation<FirebaseToken, FirebaseAuthException> verifyIdTokenOp(
       final String idToken, final boolean checkRevoked) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(idToken), "ID token must not be null or empty");
     final FirebaseTokenVerifier verifier = getIdTokenVerifier(checkRevoked);
     return new CallableOperation<FirebaseToken, FirebaseAuthException>() {
@@ -313,7 +310,7 @@ public abstract class AbstractFirebaseAuth {
   @VisibleForTesting
   FirebaseTokenVerifier getIdTokenVerifier(boolean checkRevoked) {
     FirebaseTokenVerifier verifier = idTokenVerifier.get();
-    if (checkRevoked) {
+    if (checkRevoked || isEmulatorMode()) {
       FirebaseUserManager userManager = getUserManager();
       verifier = RevocationCheckDecorator.decorateIdTokenVerifier(verifier, userManager);
     }
@@ -380,7 +377,6 @@ public abstract class AbstractFirebaseAuth {
 
   private CallableOperation<FirebaseToken, FirebaseAuthException> verifySessionCookieOp(
       final String cookie, final boolean checkRevoked) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(cookie), "Session cookie must not be null or empty");
     final FirebaseTokenVerifier sessionCookieVerifier = getSessionCookieVerifier(checkRevoked);
     return new CallableOperation<FirebaseToken, FirebaseAuthException>() {
@@ -394,7 +390,7 @@ public abstract class AbstractFirebaseAuth {
   @VisibleForTesting
   FirebaseTokenVerifier getSessionCookieVerifier(boolean checkRevoked) {
     FirebaseTokenVerifier verifier = cookieVerifier.get();
-    if (checkRevoked) {
+    if (checkRevoked || isEmulatorMode()) {
       FirebaseUserManager userManager = getUserManager();
       verifier = RevocationCheckDecorator.decorateSessionCookieVerifier(verifier, userManager);
     }
@@ -434,7 +430,6 @@ public abstract class AbstractFirebaseAuth {
   }
 
   private CallableOperation<Void, FirebaseAuthException> revokeRefreshTokensOp(final String uid) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(uid), "uid must not be null or empty");
     final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<Void, FirebaseAuthException>() {
@@ -475,7 +470,6 @@ public abstract class AbstractFirebaseAuth {
   }
 
   private CallableOperation<UserRecord, FirebaseAuthException> getUserOp(final String uid) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(uid), "uid must not be null or empty");
     final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<UserRecord, FirebaseAuthException>() {
@@ -513,7 +507,6 @@ public abstract class AbstractFirebaseAuth {
 
   private CallableOperation<UserRecord, FirebaseAuthException> getUserByEmailOp(
       final String email) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(email), "email must not be null or empty");
     final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<UserRecord, FirebaseAuthException>() {
@@ -551,13 +544,70 @@ public abstract class AbstractFirebaseAuth {
 
   private CallableOperation<UserRecord, FirebaseAuthException> getUserByPhoneNumberOp(
       final String phoneNumber) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(phoneNumber), "phone number must not be null or empty");
     final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<UserRecord, FirebaseAuthException>() {
       @Override
       protected UserRecord execute() throws FirebaseAuthException {
         return userManager.getUserByPhoneNumber(phoneNumber);
+      }
+    };
+  }
+
+  /**
+   * Gets the user data for the user corresponding to a given provider ID.
+   *
+   * @param providerId Identifier for the given federated provider: for example,
+   *     "google.com" for the Google provider.
+   * @param uid The user identifier with the given provider.
+   * @return A {@link UserRecord} instance.
+   * @throws IllegalArgumentException If the uid is null or empty, or if
+   *     the providerId is null, empty, or does not belong to a federated provider.
+   * @throws FirebaseAuthException If an error occurs while retrieving user data.
+   */
+  public UserRecord getUserByProviderUid(
+      @NonNull String providerId, @NonNull String uid) throws FirebaseAuthException {
+    return getUserByProviderUidOp(providerId, uid).call();
+  }
+
+  /**
+   * Gets the user data for the user corresponding to a given provider ID.
+   *
+   * @param providerId Identifer for the given federated provider: for example,
+   *     "google.com" for the Google provider.
+   * @param uid The user identifier with the given provider.
+   * @return An {@code ApiFuture} which will complete successfully with a {@link UserRecord}
+   *     instance. If an error occurs while retrieving user data or if the provider ID and uid
+   *     do not correspond to a user, the future throws a {@link FirebaseAuthException}.
+   * @throws IllegalArgumentException If the uid is null or empty, or if
+   *     the provider ID is null, empty, or does not belong to a federated provider.
+   */
+  public ApiFuture<UserRecord> getUserByProviderUidAsync(
+      @NonNull String providerId, @NonNull String uid) {
+    return getUserByProviderUidOp(providerId, uid).callAsync(firebaseApp);
+  }
+
+  private CallableOperation<UserRecord, FirebaseAuthException> getUserByProviderUidOp(
+      final String providerId, final String uid) {
+    checkArgument(!Strings.isNullOrEmpty(providerId), "providerId must not be null or empty");
+    checkArgument(!Strings.isNullOrEmpty(uid), "uid must not be null or empty");
+
+    // Although we don't really advertise it, we want to also handle
+    // non-federated idps with this call. So if we detect one of them, we'll
+    // reroute this request appropriately.
+    if (providerId == "phone") {
+      return this.getUserByPhoneNumberOp(uid);
+    } else if (providerId == "email") {
+      return this.getUserByEmailOp(uid);
+    }
+
+    checkArgument(!providerId.equals("password")
+        && !providerId.equals("anonymous"), "providerId must belong to a federated provider");
+    final FirebaseUserManager userManager = getUserManager();
+    return new CallableOperation<UserRecord, FirebaseAuthException>() {
+      @Override
+      protected UserRecord execute() throws FirebaseAuthException {
+        return userManager.getUserByProviderUid(providerId, uid);
       }
     };
   }
@@ -620,7 +670,6 @@ public abstract class AbstractFirebaseAuth {
 
   private CallableOperation<ListUsersPage, FirebaseAuthException> listUsersOp(
       @Nullable final String pageToken, final int maxResults) {
-    checkNotDestroyed();
     final FirebaseUserManager userManager = getUserManager();
     final DefaultUserSource source = new DefaultUserSource(userManager, jsonFactory);
     final ListUsersPage.Factory factory = new ListUsersPage.Factory(source, maxResults, pageToken);
@@ -661,7 +710,6 @@ public abstract class AbstractFirebaseAuth {
 
   private CallableOperation<UserRecord, FirebaseAuthException> createUserOp(
       final UserRecord.CreateRequest request) {
-    checkNotDestroyed();
     checkNotNull(request, "create request must not be null");
     final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<UserRecord, FirebaseAuthException>() {
@@ -701,7 +749,6 @@ public abstract class AbstractFirebaseAuth {
 
   private CallableOperation<UserRecord, FirebaseAuthException> updateUserOp(
       final UserRecord.UpdateRequest request) {
-    checkNotDestroyed();
     checkNotNull(request, "update request must not be null");
     final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<UserRecord, FirebaseAuthException>() {
@@ -754,7 +801,6 @@ public abstract class AbstractFirebaseAuth {
 
   private CallableOperation<Void, FirebaseAuthException> setCustomUserClaimsOp(
       final String uid, final Map<String, Object> claims) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(uid), "uid must not be null or empty");
     final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<Void, FirebaseAuthException>() {
@@ -793,7 +839,6 @@ public abstract class AbstractFirebaseAuth {
   }
 
   private CallableOperation<Void, FirebaseAuthException> deleteUserOp(final String uid) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(uid), "uid must not be null or empty");
     final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<Void, FirebaseAuthException>() {
@@ -876,7 +921,6 @@ public abstract class AbstractFirebaseAuth {
 
   private CallableOperation<UserImportResult, FirebaseAuthException> importUsersOp(
       final List<ImportUserRecord> users, final UserImportOptions options) {
-    checkNotDestroyed();
     final UserImportRequest request = new UserImportRequest(users, options, jsonFactory);
     final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<UserImportResult, FirebaseAuthException>() {
@@ -931,7 +975,6 @@ public abstract class AbstractFirebaseAuth {
 
   private CallableOperation<GetUsersResult, FirebaseAuthException> getUsersOp(
       @NonNull final Collection<UserIdentifier> identifiers) {
-    checkNotDestroyed();
     checkNotNull(identifiers, "identifiers must not be null");
     checkArgument(identifiers.size() <= FirebaseUserManager.MAX_GET_ACCOUNTS_BATCH_SIZE,
         "identifiers parameter must have <= " + FirebaseUserManager.MAX_GET_ACCOUNTS_BATCH_SIZE
@@ -1004,7 +1047,6 @@ public abstract class AbstractFirebaseAuth {
 
   private CallableOperation<DeleteUsersResult, FirebaseAuthException> deleteUsersOp(
       final List<String> uids) {
-    checkNotDestroyed();
     checkNotNull(uids, "uids must not be null");
     for (String uid : uids) {
       UserRecord.checkUid(uid);
@@ -1178,7 +1220,6 @@ public abstract class AbstractFirebaseAuth {
 
   private CallableOperation<String, FirebaseAuthException> generateEmailActionLinkOp(
       final EmailLinkType type, final String email, final ActionCodeSettings settings) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(email), "email must not be null or empty");
     if (type == EmailLinkType.EMAIL_SIGNIN) {
       checkNotNull(settings, "ActionCodeSettings must not be null when generating sign-in links");
@@ -1227,7 +1268,6 @@ public abstract class AbstractFirebaseAuth {
 
   private CallableOperation<OidcProviderConfig, FirebaseAuthException>
       createOidcProviderConfigOp(final OidcProviderConfig.CreateRequest request) {
-    checkNotDestroyed();
     checkNotNull(request, "Create request must not be null.");
     OidcProviderConfig.checkOidcProviderId(request.getProviderId());
     final FirebaseUserManager userManager = getUserManager();
@@ -1271,7 +1311,6 @@ public abstract class AbstractFirebaseAuth {
 
   private CallableOperation<OidcProviderConfig, FirebaseAuthException> updateOidcProviderConfigOp(
       final OidcProviderConfig.UpdateRequest request) {
-    checkNotDestroyed();
     checkNotNull(request, "Update request must not be null.");
     checkArgument(!request.getProperties().isEmpty(),
         "Update request must have at least one property set.");
@@ -1316,7 +1355,6 @@ public abstract class AbstractFirebaseAuth {
 
   private CallableOperation<OidcProviderConfig, FirebaseAuthException>
       getOidcProviderConfigOp(final String providerId) {
-    checkNotDestroyed();
     OidcProviderConfig.checkOidcProviderId(providerId);
     final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<OidcProviderConfig, FirebaseAuthException>() {
@@ -1400,7 +1438,6 @@ public abstract class AbstractFirebaseAuth {
 
   private CallableOperation<ListProviderConfigsPage<OidcProviderConfig>, FirebaseAuthException>
       listOidcProviderConfigsOp(@Nullable final String pageToken, final int maxResults) {
-    checkNotDestroyed();
     final FirebaseUserManager userManager = getUserManager();
     final DefaultOidcProviderConfigSource source = new DefaultOidcProviderConfigSource(userManager);
     final ListProviderConfigsPage.Factory<OidcProviderConfig> factory =
@@ -1443,7 +1480,6 @@ public abstract class AbstractFirebaseAuth {
 
   private CallableOperation<Void, FirebaseAuthException> deleteOidcProviderConfigOp(
       final String providerId) {
-    checkNotDestroyed();
     OidcProviderConfig.checkOidcProviderId(providerId);
     final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<Void, FirebaseAuthException>() {
@@ -1490,7 +1526,6 @@ public abstract class AbstractFirebaseAuth {
 
   private CallableOperation<SamlProviderConfig, FirebaseAuthException>
       createSamlProviderConfigOp(final SamlProviderConfig.CreateRequest request) {
-    checkNotDestroyed();
     checkNotNull(request, "Create request must not be null.");
     SamlProviderConfig.checkSamlProviderId(request.getProviderId());
     final FirebaseUserManager userManager = getUserManager();
@@ -1534,7 +1569,6 @@ public abstract class AbstractFirebaseAuth {
 
   private CallableOperation<SamlProviderConfig, FirebaseAuthException> updateSamlProviderConfigOp(
       final SamlProviderConfig.UpdateRequest request) {
-    checkNotDestroyed();
     checkNotNull(request, "Update request must not be null.");
     checkArgument(!request.getProperties().isEmpty(),
         "Update request must have at least one property set.");
@@ -1579,7 +1613,6 @@ public abstract class AbstractFirebaseAuth {
 
   private CallableOperation<SamlProviderConfig, FirebaseAuthException>
       getSamlProviderConfigOp(final String providerId) {
-    checkNotDestroyed();
     SamlProviderConfig.checkSamlProviderId(providerId);
     final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<SamlProviderConfig, FirebaseAuthException>() {
@@ -1663,7 +1696,6 @@ public abstract class AbstractFirebaseAuth {
 
   private CallableOperation<ListProviderConfigsPage<SamlProviderConfig>, FirebaseAuthException>
       listSamlProviderConfigsOp(@Nullable final String pageToken, final int maxResults) {
-    checkNotDestroyed();
     final FirebaseUserManager userManager = getUserManager();
     final DefaultSamlProviderConfigSource source = new DefaultSamlProviderConfigSource(userManager);
     final ListProviderConfigsPage.Factory<SamlProviderConfig> factory =
@@ -1706,7 +1738,6 @@ public abstract class AbstractFirebaseAuth {
 
   private CallableOperation<Void, FirebaseAuthException> deleteSamlProviderConfigOp(
       final String providerId) {
-    checkNotDestroyed();
     SamlProviderConfig.checkSamlProviderId(providerId);
     final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<Void, FirebaseAuthException>() {
@@ -1729,31 +1760,11 @@ public abstract class AbstractFirebaseAuth {
           public T get() {
             checkNotNull(supplier);
             synchronized (lock) {
-              checkNotDestroyed();
               return supplier.get();
             }
           }
         });
   }
-
-  private void checkNotDestroyed() {
-    synchronized (lock) {
-      checkState(
-          !destroyed.get(),
-          "FirebaseAuth instance is no longer alive. This happens when "
-              + "the parent FirebaseApp instance has been deleted.");
-    }
-  }
-
-  final void destroy() {
-    synchronized (lock) {
-      doDestroy();
-      destroyed.set(true);
-    }
-  }
-
-  /** Performs any additional required clean up. */
-  protected abstract void doDestroy();
 
   protected abstract static class Builder<T extends  Builder<T>> {
 

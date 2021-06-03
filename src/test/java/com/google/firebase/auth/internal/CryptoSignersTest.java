@@ -23,7 +23,10 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+  <<<<<<< v7
 import com.google.api.client.googleapis.util.Utils;
+  =======
+  >>>>>>> master
 import com.google.api.client.http.HttpRequest;
 import com.google.api.client.http.HttpStatusCodes;
 import com.google.api.client.testing.http.MockHttpTransport;
@@ -39,6 +42,7 @@ import com.google.firebase.FirebaseOptions;
 import com.google.firebase.TestOnlyImplFirebaseTrampolines;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.MockGoogleCredentials;
+import com.google.firebase.internal.ApiClientUtils;
 import com.google.firebase.testing.MultiRequestMockHttpTransport;
 import com.google.firebase.testing.ServiceAccount;
 import com.google.firebase.testing.TestResponseInterceptor;
@@ -70,21 +74,21 @@ public class CryptoSignersTest {
   @Test
   public void testIAMCryptoSigner() throws Exception {
     String signature = BaseEncoding.base64().encode("signed-bytes".getBytes());
-    String response = Utils.getDefaultJsonFactory().toString(
-        ImmutableMap.of("signature", signature));
+    String response = ApiClientUtils.getDefaultJsonFactory().toString(
+        ImmutableMap.of("signedBlob", signature));
     MockHttpTransport transport = new MockHttpTransport.Builder()
         .setLowLevelHttpResponse(new MockLowLevelHttpResponse().setContent(response))
         .build();
     TestResponseInterceptor interceptor = new TestResponseInterceptor();
     CryptoSigners.IAMCryptoSigner signer = new CryptoSigners.IAMCryptoSigner(
         transport.createRequestFactory(),
-        Utils.getDefaultJsonFactory(),
+        ApiClientUtils.getDefaultJsonFactory(),
         "test-service-account@iam.gserviceaccount.com");
     signer.setInterceptor(interceptor);
 
     byte[] data = signer.sign("foo".getBytes());
     assertArrayEquals("signed-bytes".getBytes(), data);
-    final String url = "https://iam.googleapis.com/v1/projects/-/serviceAccounts/"
+    final String url = "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/"
         + "test-service-account@iam.gserviceaccount.com:signBlob";
     assertEquals(url, interceptor.getResponse().getRequest().getUrl().toString());
   }
@@ -99,7 +103,11 @@ public class CryptoSignersTest {
         .build();
     CryptoSigners.IAMCryptoSigner signer = new CryptoSigners.IAMCryptoSigner(
         transport.createRequestFactory(),
+  <<<<<<< v7
         Utils.getDefaultJsonFactory(),
+  =======
+        ApiClientUtils.getDefaultJsonFactory(),
+  >>>>>>> master
         "test-service-account@iam.gserviceaccount.com");
     try {
       signer.sign("foo".getBytes());
@@ -115,7 +123,7 @@ public class CryptoSignersTest {
   @Test
   public void testInvalidIAMCryptoSigner() {
     try {
-      new CryptoSigners.IAMCryptoSigner(null, Utils.getDefaultJsonFactory(), "test");
+      new CryptoSigners.IAMCryptoSigner(null, ApiClientUtils.getDefaultJsonFactory(), "test");
       fail("No error thrown for null request factory");
     } catch (NullPointerException expected) {
       // expected
@@ -131,7 +139,7 @@ public class CryptoSignersTest {
 
     try {
       new CryptoSigners.IAMCryptoSigner(transport.createRequestFactory(),
-          Utils.getDefaultJsonFactory(), null);
+          ApiClientUtils.getDefaultJsonFactory(), null);
       fail("No error thrown for null service account");
     } catch (IllegalArgumentException expected) {
       // expected
@@ -139,7 +147,7 @@ public class CryptoSignersTest {
 
     try {
       new CryptoSigners.IAMCryptoSigner(transport.createRequestFactory(),
-          Utils.getDefaultJsonFactory(), "");
+          ApiClientUtils.getDefaultJsonFactory(), "");
       fail("No error thrown for empty service account");
     } catch (IllegalArgumentException expected) {
       // expected
@@ -149,8 +157,8 @@ public class CryptoSignersTest {
   @Test
   public void testMetadataService() throws Exception {
     String signature = BaseEncoding.base64().encode("signed-bytes".getBytes());
-    String response = Utils.getDefaultJsonFactory().toString(
-        ImmutableMap.of("signature", signature));
+    String response = ApiClientUtils.getDefaultJsonFactory().toString(
+        ImmutableMap.of("signedBlob", signature));
     MockHttpTransport transport = new MultiRequestMockHttpTransport(
         ImmutableList.of(
             new MockLowLevelHttpResponse().setContent("metadata-server@iam.gserviceaccount.com"),
@@ -168,7 +176,7 @@ public class CryptoSignersTest {
 
     byte[] data = signer.sign("foo".getBytes());
     assertArrayEquals("signed-bytes".getBytes(), data);
-    final String url = "https://iam.googleapis.com/v1/projects/-/serviceAccounts/"
+    final String url = "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/"
         + "metadata-server@iam.gserviceaccount.com:signBlob";
     HttpRequest request = interceptor.getResponse().getRequest();
     assertEquals(url, request.getUrl().toString());
@@ -178,8 +186,8 @@ public class CryptoSignersTest {
   @Test
   public void testExplicitServiceAccountEmail() throws Exception {
     String signature = BaseEncoding.base64().encode("signed-bytes".getBytes());
-    String response = Utils.getDefaultJsonFactory().toString(
-        ImmutableMap.of("signature", signature));
+    String response = ApiClientUtils.getDefaultJsonFactory().toString(
+        ImmutableMap.of("signedBlob", signature));
 
     // Explicit service account should get precedence
     MockHttpTransport transport = new MultiRequestMockHttpTransport(
@@ -198,7 +206,7 @@ public class CryptoSignersTest {
 
     byte[] data = signer.sign("foo".getBytes());
     assertArrayEquals("signed-bytes".getBytes(), data);
-    final String url = "https://iam.googleapis.com/v1/projects/-/serviceAccounts/"
+    final String url = "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/"
         + "explicit-service-account@iam.gserviceaccount.com:signBlob";
     HttpRequest request = interceptor.getResponse().getRequest();
     assertEquals(url, request.getUrl().toString());
@@ -217,6 +225,14 @@ public class CryptoSignersTest {
     assertEquals("credential-signer@iam.gserviceaccount.com", signer.getAccount());
     byte[] data = signer.sign("foo".getBytes());
     assertArrayEquals("local-signed-bytes".getBytes(), data);
+  }
+
+  @Test
+  public void testEmulatorCryptoSigner() throws Exception {
+    CryptoSigner signer = new CryptoSigners.EmulatorCryptoSigner();
+    byte[] data = signer.sign("foo".getBytes());
+    // No signed bytes returned
+    assertEquals(data.length, 0);
   }
 
   @After

@@ -41,6 +41,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.firebase.FirebaseApp.TokenRefresher;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.internal.FirebaseService;
 import com.google.firebase.testing.FirebaseAppRule;
 import com.google.firebase.testing.ServiceAccount;
 import com.google.firebase.testing.TestUtils;
@@ -66,7 +67,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.Mockito;
 
-/** 
+/**
  * Unit tests for {@link com.google.firebase.FirebaseApp}.
  */
 public class FirebaseAppTest {
@@ -210,6 +211,33 @@ public class FirebaseAppTest {
       assertNotSame(firebaseApp, firebaseApp2);
     } finally {
       TestOnlyImplFirebaseTrampolines.clearInstancesForTest();
+    }
+  }
+
+  @Test
+  public void testUseAfterDelete() {
+    FirebaseApp firebaseApp = FirebaseApp.initializeApp(OPTIONS);
+    firebaseApp.delete();
+
+    try {
+      firebaseApp.getOptions();
+      fail();
+    } catch (IllegalStateException expected) {
+      // ignore
+    }
+
+    try {
+      firebaseApp.getProjectId();
+      fail();
+    } catch (IllegalStateException expected) {
+      // ignore
+    }
+
+    try {
+      ImplFirebaseTrampolines.addService(firebaseApp, new MockFirebaseService());
+      fail();
+    } catch (IllegalStateException expected) {
+      // ignore
     }
   }
 
@@ -472,8 +500,8 @@ public class FirebaseAppTest {
   public void testEmptyFirebaseConfigFile() {
     setFirebaseConfigEnvironmentVariable("firebase_config_empty.json");
     FirebaseApp.initializeApp();
-  }  
-  
+  }
+
   @Test
   public void testEmptyFirebaseConfigString() {
     setFirebaseConfigEnvironmentVariable("");
@@ -481,7 +509,7 @@ public class FirebaseAppTest {
     assertNull(firebaseApp.getOptions().getProjectId());
     assertNull(firebaseApp.getOptions().getStorageBucket());
     assertNull(firebaseApp.getOptions().getDatabaseUrl());
-    assertTrue(firebaseApp.getOptions().getDatabaseAuthVariableOverride().isEmpty()); 
+    assertTrue(firebaseApp.getOptions().getDatabaseAuthVariableOverride().isEmpty());
   }
 
   @Test
@@ -542,20 +570,20 @@ public class FirebaseAppTest {
 
   @Test
   public void testValidFirebaseConfigString() {
-    setFirebaseConfigEnvironmentVariable("{" 
-        + "\"databaseAuthVariableOverride\": {" 
-        +   "\"uid\":" 
-        +   "\"testuser\"" 
-        + "}," 
-        + "\"databaseUrl\": \"https://hipster-chat.firebaseio.mock\"," 
-        + "\"projectId\": \"hipster-chat-mock\"," 
-        + "\"storageBucket\": \"hipster-chat.appspot.mock\"" 
+    setFirebaseConfigEnvironmentVariable("{"
+        + "\"databaseAuthVariableOverride\": {"
+        +   "\"uid\":"
+        +   "\"testuser\""
+        + "},"
+        + "\"databaseUrl\": \"https://hipster-chat.firebaseio.mock\","
+        + "\"projectId\": \"hipster-chat-mock\","
+        + "\"storageBucket\": \"hipster-chat.appspot.mock\""
         + "}");
     FirebaseApp firebaseApp = FirebaseApp.initializeApp();
     assertEquals("hipster-chat-mock", firebaseApp.getOptions().getProjectId());
     assertEquals("hipster-chat.appspot.mock", firebaseApp.getOptions().getStorageBucket());
     assertEquals("https://hipster-chat.firebaseio.mock", firebaseApp.getOptions().getDatabaseUrl());
-    assertEquals("testuser", 
+    assertEquals("testuser",
         firebaseApp.getOptions().getDatabaseAuthVariableOverride().get("uid"));
   }
 
@@ -682,6 +710,12 @@ public class FirebaseAppTest {
     public AccessToken refreshAccessToken() {
       Date expiry = new Date(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(1));
       return new AccessToken(UUID.randomUUID().toString(), expiry);
+    }
+  }
+
+  private static class MockFirebaseService extends FirebaseService<Object> {
+    MockFirebaseService() {
+      super("MockFirebaseService", new Object());
     }
   }
 }

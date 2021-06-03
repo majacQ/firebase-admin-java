@@ -24,7 +24,6 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.google.api.client.googleapis.util.Utils;
 import com.google.api.client.http.GenericUrl;
 import com.google.api.client.http.HttpHeaders;
 import com.google.api.client.http.HttpRequest;
@@ -35,6 +34,8 @@ import com.google.api.client.testing.http.MockHttpTransport;
 import com.google.api.client.testing.http.MockLowLevelHttpResponse;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.firebase.ErrorCode;
 import com.google.firebase.FirebaseApp;
@@ -44,6 +45,10 @@ import com.google.firebase.auth.AuthErrorCode;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.MockGoogleCredentials;
+  <<<<<<< v7
+  =======
+import com.google.firebase.internal.ApiClientUtils;
+  >>>>>>> master
 import com.google.firebase.internal.SdkUtils;
 import com.google.firebase.testing.MultiRequestMockHttpTransport;
 import com.google.firebase.testing.TestResponseInterceptor;
@@ -52,12 +57,13 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+
 import org.junit.After;
 import org.junit.Test;
 
 public class FirebaseTenantClientTest {
 
-  private static final JsonFactory JSON_FACTORY = Utils.getDefaultJsonFactory();
+  private static final JsonFactory JSON_FACTORY = ApiClientUtils.getDefaultJsonFactory();
 
   private static final String TEST_TOKEN = "token";
 
@@ -68,8 +74,14 @@ public class FirebaseTenantClientTest {
 
   private static final String TENANTS_BASE_URL = PROJECT_BASE_URL + "/tenants";
 
+  private static final String AUTH_EMULATOR = "localhost:8000";
+  private static final String PROJECT_BASE_URL_EMULATOR =
+          "http://" + AUTH_EMULATOR + "/identitytoolkit.googleapis.com/v2/projects/test-project-id";
+  private static final String TENANTS_BASE_URL_EMULATOR = PROJECT_BASE_URL_EMULATOR + "/tenants";
+
   @After
-  public void tearDown() {
+  public void tearDown() throws ReflectiveOperationException {
+    TestUtils.unsetEnvironmentVariables(ImmutableSet.of("FIREBASE_AUTH_EMULATOR_HOST"));
     TestOnlyImplFirebaseTrampolines.clearInstancesForTest();
   }
 
@@ -312,6 +324,20 @@ public class FirebaseTenantClientTest {
     checkUrl(interceptor, "DELETE", TENANTS_BASE_URL + "/UNKNOWN");
   }
 
+  @Test
+  public void testGetTenantFromAuthEmulator() throws Exception {
+    TestUtils.setEnvironmentVariables(
+            ImmutableMap.of("FIREBASE_AUTH_EMULATOR_HOST", AUTH_EMULATOR));
+    TestResponseInterceptor interceptor = initializeAppForTenantManagement(
+            TestUtils.loadResource("tenant.json"));
+
+    Tenant tenant = FirebaseAuth.getInstance().getTenantManager().getTenant("TENANT_1");
+
+    checkTenant(tenant, "TENANT_1");
+    checkRequestHeaders(interceptor);
+    checkUrl(interceptor, "GET", TENANTS_BASE_URL_EMULATOR + "/TENANT_1");
+  }
+
   private static void checkTenant(Tenant tenant, String tenantId) {
     assertEquals(tenantId, tenant.getTenantId());
     assertEquals("DISPLAY_NAME", tenant.getDisplayName());
@@ -375,7 +401,13 @@ public class FirebaseTenantClientTest {
         .setCredentials(credentials)
         .build());
     FirebaseTenantClient tenantClient = new FirebaseTenantClient(
+  <<<<<<< v7
         "test-project-id", Utils.getDefaultJsonFactory(), transport.createRequestFactory());
+  =======
+        "test-project-id",
+        ApiClientUtils.getDefaultJsonFactory(),
+        transport.createRequestFactory());
+  >>>>>>> master
     return new TenantManager(app, tenantClient);
   }
 

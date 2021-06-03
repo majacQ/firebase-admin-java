@@ -23,7 +23,6 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.google.api.client.googleapis.util.Utils;
 import com.google.api.client.http.GenericUrl;
 import com.google.api.client.http.HttpRequest;
 import com.google.api.client.http.HttpResponse;
@@ -54,6 +53,7 @@ import com.google.firebase.auth.UserRecord;
 import com.google.firebase.auth.UserTestUtils;
 import com.google.firebase.auth.UserTestUtils.RandomUser;
 import com.google.firebase.auth.UserTestUtils.TemporaryUser;
+import com.google.firebase.internal.ApiClientUtils;
 import com.google.firebase.internal.Nullable;
 import com.google.firebase.testing.IntegrationTestUtils;
 import java.io.IOException;
@@ -73,8 +73,8 @@ public class TenantAwareFirebaseAuthIT {
 
   private static final String VERIFY_CUSTOM_TOKEN_URL =
       "https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyCustomToken";
-  private static final JsonFactory jsonFactory = Utils.getDefaultJsonFactory();
-  private static final HttpTransport transport = Utils.getDefaultTransport();
+  private static final JsonFactory jsonFactory = ApiClientUtils.getDefaultJsonFactory();
+  private static final HttpTransport transport = ApiClientUtils.getDefaultTransport();
 
   private static TenantManager tenantManager;
   private static TenantAwareFirebaseAuth tenantAwareAuth;
@@ -261,6 +261,11 @@ public class TenantAwareFirebaseAuthIT {
       assertEquals(AuthErrorCode.TENANT_ID_MISMATCH,
           ((FirebaseAuthException) e.getCause()).getAuthErrorCode());
     }
+
+    // Verifies with FirebaseAuth
+    FirebaseToken decoded = FirebaseAuth.getInstance().verifyIdToken(idToken);
+    assertEquals("user", decoded.getUid());
+    assertEquals(tenantId, decoded.getTenantId());
   }
 
   @Test
@@ -274,18 +279,28 @@ public class TenantAwareFirebaseAuthIT {
               .setDisplayName("DisplayName")
               .setEnabled(true)
               .setClientId("ClientId")
-              .setIssuer("https://oidc.com/issuer"));
+              .setClientSecret("ClientSecret")
+              .setIssuer("https://oidc.com/issuer")
+              .setCodeResponseType(true)
+              .setIdTokenResponseType(false));
+
     assertEquals(providerId, config.getProviderId());
     assertEquals("DisplayName", config.getDisplayName());
     assertEquals("ClientId", config.getClientId());
+    assertEquals("ClientSecret", config.getClientSecret());
     assertEquals("https://oidc.com/issuer", config.getIssuer());
+    assertTrue(config.isCodeResponseType());
+    assertFalse(config.isIdTokenResponseType());
 
     // Get provider config
     config = tenantAwareAuth.getOidcProviderConfigAsync(providerId).get();
     assertEquals(providerId, config.getProviderId());
     assertEquals("DisplayName", config.getDisplayName());
     assertEquals("ClientId", config.getClientId());
+    assertEquals("ClientSecret", config.getClientSecret());
     assertEquals("https://oidc.com/issuer", config.getIssuer());
+    assertTrue(config.isCodeResponseType());
+    assertFalse(config.isIdTokenResponseType());
 
     // Update provider config
     OidcProviderConfig.UpdateRequest updateRequest =
@@ -293,13 +308,20 @@ public class TenantAwareFirebaseAuthIT {
             .setDisplayName("NewDisplayName")
             .setEnabled(false)
             .setClientId("NewClientId")
-            .setIssuer("https://oidc.com/new-issuer");
+            .setClientSecret("NewClientSecret")
+            .setIssuer("https://oidc.com/new-issuer")
+            .setCodeResponseType(false)
+            .setIdTokenResponseType(true);
+
     config = tenantAwareAuth.updateOidcProviderConfigAsync(updateRequest).get();
     assertEquals(providerId, config.getProviderId());
     assertEquals("NewDisplayName", config.getDisplayName());
     assertFalse(config.isEnabled());
     assertEquals("NewClientId", config.getClientId());
+    assertEquals("NewClientSecret", config.getClientSecret());
     assertEquals("https://oidc.com/new-issuer", config.getIssuer());
+    assertFalse(config.isCodeResponseType());
+    assertTrue(config.isIdTokenResponseType());
 
     // Delete provider config
     temporaryProviderConfig.deleteOidcProviderConfig(providerId);
