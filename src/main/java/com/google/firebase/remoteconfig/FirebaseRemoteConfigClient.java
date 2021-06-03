@@ -16,6 +16,11 @@
 
 package com.google.firebase.remoteconfig;
 
+  <<<<<<< rpb/hacky-auth-bypass
+  =======
+import com.google.firebase.remoteconfig.internal.TemplateResponse.ListVersionsResponse;
+
+  >>>>>>> chong-shao-typo-fix
 /**
  * An interface for managing Firebase Remote Config templates.
  */
@@ -24,8 +29,25 @@ interface FirebaseRemoteConfigClient {
   /**
    * Gets the current active version of the Remote Config template.
    *
+  <<<<<<< rpb/hacky-auth-bypass
    * @return A {@link RemoteConfigTemplate}.
    * @throws FirebaseRemoteConfigException If an error occurs while getting the template.
    */
   RemoteConfigTemplate getTemplate() throws FirebaseRemoteConfigException;
+  =======
+   * @return A {@link Template}.
+   * @throws FirebaseRemoteConfigException If an error occurs while getting the template.
+   */
+  Template getTemplate() throws FirebaseRemoteConfigException;
+
+  Template getTemplateAtVersion(String versionNumber) throws FirebaseRemoteConfigException;
+
+  Template publishTemplate(Template template, boolean validateOnly,
+                                  boolean forcePublish) throws FirebaseRemoteConfigException;
+
+  Template rollback(String versionNumber) throws FirebaseRemoteConfigException;
+
+  ListVersionsResponse listVersions(
+          ListVersionsOptions options) throws FirebaseRemoteConfigException;
+  >>>>>>> chong-shao-typo-fix
 }

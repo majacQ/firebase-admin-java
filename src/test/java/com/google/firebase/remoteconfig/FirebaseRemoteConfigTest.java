@@ -27,7 +27,15 @@ import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import com.google.firebase.TestOnlyImplFirebaseTrampolines;
 import com.google.firebase.auth.MockGoogleCredentials;
+  <<<<<<< rpb/hacky-auth-bypass
 import java.util.concurrent.ExecutionException;
+  =======
+
+import com.google.firebase.remoteconfig.internal.TemplateResponse;
+
+import java.util.concurrent.ExecutionException;
+
+  >>>>>>> chong-shao-typo-fix
 import org.junit.After;
 import org.junit.Test;
 
@@ -113,6 +121,7 @@ public class FirebaseRemoteConfigTest {
 
   private static final String TEST_ETAG = "etag-123456789012-1";
 
+  <<<<<<< rpb/hacky-auth-bypass
   @Test
   public void testGetTemplate() throws FirebaseRemoteConfigException {
     MockRemoteConfigClient client = MockRemoteConfigClient.fromTemplate(
@@ -120,6 +129,17 @@ public class FirebaseRemoteConfigTest {
     FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
 
     RemoteConfigTemplate template = remoteConfig.getTemplate();
+  =======
+  // Get template tests
+
+  @Test
+  public void testGetTemplate() throws FirebaseRemoteConfigException {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromTemplate(
+            new Template().setETag(TEST_ETAG));
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    Template template = remoteConfig.getTemplate();
+  >>>>>>> chong-shao-typo-fix
 
     assertEquals(TEST_ETAG, template.getETag());
   }
@@ -139,10 +159,17 @@ public class FirebaseRemoteConfigTest {
   @Test
   public void testGetTemplateAsync() throws Exception {
     MockRemoteConfigClient client = MockRemoteConfigClient.fromTemplate(
+  <<<<<<< rpb/hacky-auth-bypass
             new RemoteConfigTemplate().setETag(TEST_ETAG));
     FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
 
     RemoteConfigTemplate template = remoteConfig.getTemplateAsync().get();
+  =======
+            new Template().setETag(TEST_ETAG));
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    Template template = remoteConfig.getTemplateAsync().get();
+  >>>>>>> chong-shao-typo-fix
 
     assertEquals(TEST_ETAG, template.getETag());
   }
@@ -159,6 +186,437 @@ public class FirebaseRemoteConfigTest {
     }
   }
 
+  <<<<<<< rpb/hacky-auth-bypass
+  =======
+  // Get template with version number tests
+
+  @Test
+  public void testGetTemplateAtVersionWithStringValue() throws FirebaseRemoteConfigException {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromTemplate(
+            new Template().setETag(TEST_ETAG));
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    Template template = remoteConfig.getTemplateAtVersion("64");
+
+    assertEquals(TEST_ETAG, template.getETag());
+  }
+
+  @Test
+  public void testGetTemplateAtVersionWithStringValueFailure() {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromException(TEST_EXCEPTION);
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    try {
+      remoteConfig.getTemplateAtVersion("55");
+    } catch (FirebaseRemoteConfigException e) {
+      assertSame(TEST_EXCEPTION, e);
+    }
+  }
+
+  @Test
+  public void testGetTemplateAtVersionAsyncWithStringValue() throws Exception {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromTemplate(
+            new Template().setETag(TEST_ETAG));
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    Template template = remoteConfig.getTemplateAtVersionAsync("55").get();
+
+    assertEquals(TEST_ETAG, template.getETag());
+  }
+
+  @Test
+  public void testGetTemplateAtVersionAsyncWithStringValueFailure() throws InterruptedException {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromException(TEST_EXCEPTION);
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    try {
+      remoteConfig.getTemplateAtVersionAsync("55").get();
+    } catch (ExecutionException e) {
+      assertSame(TEST_EXCEPTION, e.getCause());
+    }
+  }
+
+  @Test
+  public void testGetTemplateAtVersionWithLongValue() throws FirebaseRemoteConfigException {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromTemplate(
+            new Template().setETag(TEST_ETAG));
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    Template template = remoteConfig.getTemplateAtVersion(64L);
+
+    assertEquals(TEST_ETAG, template.getETag());
+  }
+
+  @Test
+  public void testGetTemplateAtVersionWithLongValueFailure() {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromException(TEST_EXCEPTION);
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    try {
+      remoteConfig.getTemplateAtVersion(55L);
+    } catch (FirebaseRemoteConfigException e) {
+      assertSame(TEST_EXCEPTION, e);
+    }
+  }
+
+  @Test
+  public void testGetTemplateAtVersionAsyncWithLongValue() throws Exception {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromTemplate(
+            new Template().setETag(TEST_ETAG));
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    Template template = remoteConfig.getTemplateAtVersionAsync(55L).get();
+
+    assertEquals(TEST_ETAG, template.getETag());
+  }
+
+  @Test
+  public void testGetTemplateAtVersionAsyncWithLongValueFailure() throws InterruptedException {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromException(TEST_EXCEPTION);
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    try {
+      remoteConfig.getTemplateAtVersionAsync(55L).get();
+    } catch (ExecutionException e) {
+      assertSame(TEST_EXCEPTION, e.getCause());
+    }
+  }
+
+  // Validate template tests
+
+  @Test
+  public void testValidateTemplate() throws FirebaseRemoteConfigException {
+    Template template = new Template().setETag(TEST_ETAG);
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromTemplate(template);
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    Template validatedTemplate = remoteConfig.validateTemplate(template);
+
+    assertEquals(TEST_ETAG, validatedTemplate.getETag());
+  }
+
+  @Test
+  public void testValidateTemplateFailure() {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromException(TEST_EXCEPTION);
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    try {
+      remoteConfig.validateTemplate(new Template());
+    } catch (FirebaseRemoteConfigException e) {
+      assertSame(TEST_EXCEPTION, e);
+    }
+  }
+
+  @Test
+  public void testValidateTemplateAsync() throws Exception {
+    Template template = new Template().setETag(TEST_ETAG);
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromTemplate(template);
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    Template validatedTemplate = remoteConfig.validateTemplateAsync(template).get();
+
+    assertEquals(TEST_ETAG, validatedTemplate.getETag());
+  }
+
+  @Test
+  public void testValidateTemplateAsyncFailure() throws InterruptedException {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromException(TEST_EXCEPTION);
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    try {
+      remoteConfig.validateTemplateAsync(new Template()).get();
+    } catch (ExecutionException e) {
+      assertSame(TEST_EXCEPTION, e.getCause());
+    }
+  }
+
+  // Publish template tests
+
+  @Test
+  public void testPublishTemplate() throws FirebaseRemoteConfigException {
+    Template template = new Template().setETag(TEST_ETAG);
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromTemplate(template);
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    Template publishedTemplate = remoteConfig.publishTemplate(template);
+
+    assertEquals(TEST_ETAG, publishedTemplate.getETag());
+  }
+
+  @Test
+  public void testPublishTemplateFailure() {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromException(TEST_EXCEPTION);
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    try {
+      remoteConfig.publishTemplate(new Template());
+    } catch (FirebaseRemoteConfigException e) {
+      assertSame(TEST_EXCEPTION, e);
+    }
+  }
+
+  @Test
+  public void testPublishTemplateAsync() throws Exception {
+    Template template = new Template().setETag(TEST_ETAG);
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromTemplate(template);
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    Template publishedTemplate = remoteConfig.publishTemplateAsync(template).get();
+
+    assertEquals(TEST_ETAG, publishedTemplate.getETag());
+  }
+
+  @Test
+  public void testPublishTemplateAsyncFailure() throws InterruptedException {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromException(TEST_EXCEPTION);
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    try {
+      remoteConfig.publishTemplateAsync(new Template()).get();
+    } catch (ExecutionException e) {
+      assertSame(TEST_EXCEPTION, e.getCause());
+    }
+  }
+
+  // Force publish template tests
+
+  @Test
+  public void testForcePublishTemplate() throws FirebaseRemoteConfigException {
+    Template template = new Template().setETag(TEST_ETAG);
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromTemplate(template);
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    Template forcePublishedTemplate = remoteConfig.forcePublishTemplate(template);
+
+    assertEquals(TEST_ETAG, forcePublishedTemplate.getETag());
+  }
+
+  @Test
+  public void testForcePublishTemplateFailure() {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromException(TEST_EXCEPTION);
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    try {
+      remoteConfig.forcePublishTemplate(new Template());
+    } catch (FirebaseRemoteConfigException e) {
+      assertSame(TEST_EXCEPTION, e);
+    }
+  }
+
+  @Test
+  public void testForcePublishTemplateAsync() throws Exception {
+    Template template = new Template().setETag(TEST_ETAG);
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromTemplate(template);
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    Template forcePublishedTemplate = remoteConfig.forcePublishTemplateAsync(template).get();
+
+    assertEquals(TEST_ETAG, forcePublishedTemplate.getETag());
+  }
+
+  @Test
+  public void testForcePublishTemplateAsyncFailure() throws InterruptedException {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromException(TEST_EXCEPTION);
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    try {
+      remoteConfig.forcePublishTemplateAsync(new Template()).get();
+    } catch (ExecutionException e) {
+      assertSame(TEST_EXCEPTION, e.getCause());
+    }
+  }
+
+  // Rollback template tests
+
+  @Test
+  public void testRollbackWithStringValue() throws FirebaseRemoteConfigException {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromTemplate(
+            new Template().setETag(TEST_ETAG));
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    Template template = remoteConfig.rollback("64");
+
+    assertEquals(TEST_ETAG, template.getETag());
+  }
+
+  @Test
+  public void testRollbackWithStringValueFailure() {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromException(TEST_EXCEPTION);
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    try {
+      remoteConfig.rollback("55");
+    } catch (FirebaseRemoteConfigException e) {
+      assertSame(TEST_EXCEPTION, e);
+    }
+  }
+
+  @Test
+  public void testRollbackAsyncWithStringValue() throws Exception {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromTemplate(
+            new Template().setETag(TEST_ETAG));
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    Template template = remoteConfig.rollbackAsync("55").get();
+
+    assertEquals(TEST_ETAG, template.getETag());
+  }
+
+  @Test
+  public void testRollbackAsyncWithStringValueFailure() throws InterruptedException {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromException(TEST_EXCEPTION);
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    try {
+      remoteConfig.rollbackAsync("55").get();
+    } catch (ExecutionException e) {
+      assertSame(TEST_EXCEPTION, e.getCause());
+    }
+  }
+
+  @Test
+  public void testRollbackWithLongValue() throws FirebaseRemoteConfigException {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromTemplate(
+            new Template().setETag(TEST_ETAG));
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    Template template = remoteConfig.rollback(64L);
+
+    assertEquals(TEST_ETAG, template.getETag());
+  }
+
+  @Test
+  public void testRollbackWithLongValueFailure() {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromException(TEST_EXCEPTION);
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    try {
+      remoteConfig.rollback(55L);
+    } catch (FirebaseRemoteConfigException e) {
+      assertSame(TEST_EXCEPTION, e);
+    }
+  }
+
+  @Test
+  public void testRollbackAsyncWithLongValue() throws Exception {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromTemplate(
+            new Template().setETag(TEST_ETAG));
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    Template template = remoteConfig.rollbackAsync(55L).get();
+
+    assertEquals(TEST_ETAG, template.getETag());
+  }
+
+  @Test
+  public void testRollbackAsyncWithLongValueFailure() throws InterruptedException {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromException(TEST_EXCEPTION);
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    try {
+      remoteConfig.rollbackAsync(55L).get();
+    } catch (ExecutionException e) {
+      assertSame(TEST_EXCEPTION, e.getCause());
+    }
+  }
+
+  // List versions tests
+
+  @Test
+  public void testListVersionsWithNoOptions() throws FirebaseRemoteConfigException {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromListVersionsResponse(
+            new TemplateResponse.ListVersionsResponse().setNextPageToken("token"));
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    ListVersionsPage listVersionsPage = remoteConfig.listVersions();
+
+    assertEquals("token", listVersionsPage.getNextPageToken());
+  }
+
+  @Test
+  public void testListVersionsWithNoOptionsFailure() {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromException(TEST_EXCEPTION);
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    try {
+      remoteConfig.listVersions();
+    } catch (FirebaseRemoteConfigException e) {
+      assertSame(TEST_EXCEPTION, e);
+    }
+  }
+
+  @Test
+  public void testListVersionsAsyncWithNoOptions() throws Exception {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromListVersionsResponse(
+            new TemplateResponse.ListVersionsResponse().setNextPageToken("token"));
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    ListVersionsPage listVersionsPage = remoteConfig.listVersionsAsync().get();
+
+    assertEquals("token", listVersionsPage.getNextPageToken());
+  }
+
+  @Test
+  public void testListVersionsAsyncWithNoOptionsFailure() throws InterruptedException {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromException(TEST_EXCEPTION);
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    try {
+      remoteConfig.listVersionsAsync().get();
+    } catch (ExecutionException e) {
+      assertSame(TEST_EXCEPTION, e.getCause());
+    }
+  }
+
+  @Test
+  public void testListVersionsWithOptions() throws FirebaseRemoteConfigException {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromListVersionsResponse(
+            new TemplateResponse.ListVersionsResponse().setNextPageToken("token"));
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    ListVersionsPage listVersionsPage = remoteConfig.listVersions(
+            ListVersionsOptions.builder().build());
+
+    assertEquals("token", listVersionsPage.getNextPageToken());
+  }
+
+  @Test
+  public void testListVersionsWithOptionsFailure() {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromException(TEST_EXCEPTION);
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    try {
+      remoteConfig.listVersions(ListVersionsOptions.builder().build());
+    } catch (FirebaseRemoteConfigException e) {
+      assertSame(TEST_EXCEPTION, e);
+    }
+  }
+
+  @Test
+  public void testListVersionsAsyncWithOptions() throws Exception {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromListVersionsResponse(
+            new TemplateResponse.ListVersionsResponse().setNextPageToken("token"));
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    ListVersionsPage listVersionsPage = remoteConfig.listVersionsAsync(
+            ListVersionsOptions.builder().build()).get();
+
+    assertEquals("token", listVersionsPage.getNextPageToken());
+  }
+
+  @Test
+  public void testListVersionsAsyncWithOptionsFailure() throws InterruptedException {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromException(TEST_EXCEPTION);
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    try {
+      remoteConfig.listVersionsAsync(ListVersionsOptions.builder().build()).get();
+    } catch (ExecutionException e) {
+      assertSame(TEST_EXCEPTION, e.getCause());
+    }
+  }
+
+  >>>>>>> chong-shao-typo-fix
   private FirebaseRemoteConfig getRemoteConfig(FirebaseRemoteConfigClient client) {
     FirebaseApp app = FirebaseApp.initializeApp(TEST_OPTIONS);
     return new FirebaseRemoteConfig(app, client);
