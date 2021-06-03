@@ -26,7 +26,6 @@ import com.google.api.client.http.HttpRequestFactory;
 import com.google.api.client.http.HttpResponse;
 import com.google.api.client.http.HttpResponseException;
 import com.google.api.client.http.HttpResponseInterceptor;
-import com.google.api.client.http.HttpTransport;
 import com.google.api.client.http.json.JsonHttpContent;
 import com.google.api.client.json.GenericJson;
 import com.google.api.client.json.JsonFactory;
@@ -40,19 +39,23 @@ import com.google.firebase.FirebaseApp;
 import com.google.firebase.ImplFirebaseTrampolines;
 import com.google.firebase.auth.UserRecord.CreateRequest;
 import com.google.firebase.auth.UserRecord.UpdateRequest;
+import com.google.firebase.auth.internal.BatchDeleteResponse;
 import com.google.firebase.auth.internal.DownloadAccountResponse;
+import com.google.firebase.auth.internal.GetAccountInfoRequest;
 import com.google.firebase.auth.internal.GetAccountInfoResponse;
-
 import com.google.firebase.auth.internal.HttpErrorResponse;
 import com.google.firebase.auth.internal.UploadAccountResponse;
-import com.google.firebase.internal.FirebaseRequestInitializer;
+import com.google.firebase.internal.ApiClientUtils;
 import com.google.firebase.internal.NonNull;
 import com.google.firebase.internal.Nullable;
 import com.google.firebase.internal.SdkUtils;
 
 import java.io.IOException;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * FirebaseUserManager provides methods for interacting with the Google Identity Toolkit via its
@@ -87,6 +90,8 @@ class FirebaseUserManager {
       .put("INVALID_DYNAMIC_LINK_DOMAIN", "invalid-dynamic-link-domain")
       .build();
 
+  static final int MAX_GET_ACCOUNTS_BATCH_SIZE = 100;
+  static final int MAX_DELETE_ACCOUNTS_BATCH_SIZE = 1000;
   static final int MAX_LIST_USERS_RESULTS = 1000;
   static final int MAX_IMPORT_USERS = 1000;
 
@@ -111,6 +116,10 @@ class FirebaseUserManager {
    * @param app A non-null {@link FirebaseApp}.
    */
   FirebaseUserManager(@NonNull FirebaseApp app) {
+    this(app, null);
+  }
+
+  FirebaseUserManager(@NonNull FirebaseApp app, @Nullable HttpRequestFactory requestFactory) {
     checkNotNull(app, "FirebaseApp must not be null");
     String projectId = ImplFirebaseTrampolines.getProjectId(app);
     checkArgument(!Strings.isNullOrEmpty(projectId),
@@ -119,8 +128,12 @@ class FirebaseUserManager {
             + "set the project ID via the GOOGLE_CLOUD_PROJECT environment variable.");
     this.baseUrl = String.format(ID_TOOLKIT_URL, projectId);
     this.jsonFactory = app.getOptions().getJsonFactory();
-    HttpTransport transport = app.getOptions().getHttpTransport();
-    this.requestFactory = transport.createRequestFactory(new FirebaseRequestInitializer(app));
+
+    if (requestFactory == null) {
+      requestFactory = ApiClientUtils.newAuthorizedRequestFactory(app);
+    }
+
+    this.requestFactory = requestFactory;
   }
 
   @VisibleForTesting
@@ -164,6 +177,33 @@ class FirebaseUserManager {
     return new UserRecord(response.getUsers().get(0), jsonFactory);
   }
 
+  Set<UserRecord> getAccountInfo(@NonNull Collection<UserIdentifier> identifiers)
+      throws FirebaseAuthException {
+    if (identifiers.isEmpty()) {
+      return new HashSet<UserRecord>();
+    }
+
+    GetAccountInfoRequest payload = new GetAccountInfoRequest();
+    for (UserIdentifier id : identifiers) {
+      id.populate(payload);
+    }
+
+    GetAccountInfoResponse response = post(
+        "/accounts:lookup", payload, GetAccountInfoResponse.class);
+
+    if (response == null) {
+      throw new FirebaseAuthException(INTERNAL_ERROR, "Failed to parse server response");
+    }
+
+    Set<UserRecord> results = new HashSet<>();
+    if (response.getUsers() != null) {
+      for (GetAccountInfoResponse.User user : response.getUsers()) {
+        results.add(new UserRecord(user, jsonFactory));
+      }
+    }
+    return results;
+  }
+
   String createUser(CreateRequest request) throws FirebaseAuthException {
     GenericJson response = post(
         "/accounts", request.getProperties(), GenericJson.class);
@@ -191,6 +231,23 @@ class FirebaseUserManager {
     if (response == null || !response.containsKey("kind")) {
       throw new FirebaseAuthException(INTERNAL_ERROR, "Failed to delete user: " + uid);
     }
+  }
+
+  /**
+   * @pre uids != null
+   * @pre uids.size() <= MAX_DELETE_ACCOUNTS_BATCH_SIZE
+   */
+  DeleteUsersResult deleteUsers(@NonNull List<String> uids) throws FirebaseAuthException {
+    final Map<String, Object> payload = ImmutableMap.<String, Object>of(
+        "localIds", uids,
+        "force", true);
+    BatchDeleteResponse response = post(
+        "/accounts:batchDelete", payload, BatchDeleteResponse.class);
+    if (response == null) {
+      throw new FirebaseAuthException(INTERNAL_ERROR, "Failed to delete users");
+    }
+
+    return new DeleteUsersResult(uids.size(), response);
   }
 
   DownloadAccountResponse listUsers(int maxResults, String pageToken) throws FirebaseAuthException {

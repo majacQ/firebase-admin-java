@@ -33,6 +33,8 @@ import com.google.api.client.json.JsonFactory;
 import com.google.api.client.testing.http.MockHttpTransport;
 import com.google.api.client.testing.http.MockLowLevelHttpResponse;
 import com.google.auth.oauth2.GoogleCredentials;
+import com.google.common.base.Strings;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -40,6 +42,8 @@ import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import com.google.firebase.TestOnlyImplFirebaseTrampolines;
 import com.google.firebase.auth.FirebaseUserManager.EmailLinkType;
+import com.google.firebase.auth.UidIdentifier;
+import com.google.firebase.auth.UserIdentifier;
 import com.google.firebase.auth.UserRecord.CreateRequest;
 import com.google.firebase.auth.UserRecord.UpdateRequest;
 import com.google.firebase.internal.SdkUtils;
@@ -51,6 +55,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -167,6 +173,153 @@ public class FirebaseUserManagerTest {
   }
 
   @Test
+  public void testGetUsersExceeds100() throws Exception {
+    FirebaseApp.initializeApp(new FirebaseOptions.Builder()
+            .setCredentials(credentials)
+            .build());
+    List<UserIdentifier> identifiers = new ArrayList<>();
+    for (int i = 0; i < 101; i++) {
+      identifiers.add(new UidIdentifier("uid_" + i));
+    }
+
+    try {
+      FirebaseAuth.getInstance().getUsers(identifiers);
+      fail("No error thrown for too many supplied identifiers");
+    } catch (IllegalArgumentException expected) {
+      // expected
+    }
+  }
+
+  @Test
+  public void testGetUsersNull() throws Exception {
+    FirebaseApp.initializeApp(new FirebaseOptions.Builder()
+            .setCredentials(credentials)
+            .build());
+    try {
+      FirebaseAuth.getInstance().getUsers(null);
+      fail("No error thrown for null identifiers");
+    } catch (NullPointerException expected) {
+      // expected
+    }
+  }
+
+  @Test
+  public void testGetUsersEmpty() throws Exception {
+    initializeAppForUserManagement();
+    GetUsersResult result = FirebaseAuth.getInstance().getUsers(new ArrayList<UserIdentifier>());
+    assertTrue(result.getUsers().isEmpty());
+    assertTrue(result.getNotFound().isEmpty());
+  }
+
+  @Test
+  public void testGetUsersAllNonExisting() throws Exception {
+    initializeAppForUserManagement("{ \"users\": [] }");
+    List<UserIdentifier> ids = ImmutableList.<UserIdentifier>of(
+        new UidIdentifier("id-that-doesnt-exist"));
+    GetUsersResult result = FirebaseAuth.getInstance().getUsers(ids);
+    assertTrue(result.getUsers().isEmpty());
+    assertEquals(ids.size(), result.getNotFound().size());
+    assertTrue(result.getNotFound().containsAll(ids));
+  }
+
+  @Test
+  public void testGetUsersMultipleIdentifierTypes() throws Exception {
+    initializeAppForUserManagement((""
+        + "{ "
+        + "    'users': [{ "
+        + "        'localId': 'uid1', "
+        + "        'email': 'user1@example.com', "
+        + "        'phoneNumber': '+15555550001' "
+        + "    }, { "
+        + "        'localId': 'uid2', "
+        + "        'email': 'user2@example.com', "
+        + "        'phoneNumber': '+15555550002' "
+        + "    }, { "
+        + "        'localId': 'uid3', "
+        + "        'email': 'user3@example.com', "
+        + "        'phoneNumber': '+15555550003' "
+        + "    }, { "
+        + "        'localId': 'uid4', "
+        + "        'email': 'user4@example.com', "
+        + "        'phoneNumber': '+15555550004', "
+        + "        'providerUserInfo': [{ "
+        + "            'providerId': 'google.com', "
+        + "            'rawId': 'google_uid4' "
+        + "        }] "
+        + "    }] "
+        + "} "
+        ).replace("'", "\""));
+
+    UidIdentifier doesntExist = new UidIdentifier("this-uid-doesnt-exist");
+    List<UserIdentifier> ids = ImmutableList.<UserIdentifier>of(
+        new UidIdentifier("uid1"),
+        new EmailIdentifier("user2@example.com"),
+        new PhoneIdentifier("+15555550003"),
+        new ProviderIdentifier("google.com", "google_uid4"),
+        doesntExist);
+    GetUsersResult result = FirebaseAuth.getInstance().getUsers(ids);
+    Collection<String> uids = userRecordsToUids(result.getUsers());
+    assertTrue(uids.containsAll(ImmutableList.of("uid1", "uid2", "uid3", "uid4")));
+    assertEquals(1, result.getNotFound().size());
+    assertTrue(result.getNotFound().contains(doesntExist));
+  }
+
+  private Collection<String> userRecordsToUids(Collection<UserRecord> userRecords) {
+    Collection<String> uids = new HashSet<>();
+    for (UserRecord userRecord : userRecords) {
+      uids.add(userRecord.getUid());
+    }
+    return uids;
+  }
+
+  @Test
+  public void testInvalidUidIdentifier() throws Exception {
+    try {
+      new UidIdentifier("too long " + Strings.repeat(".", 128));
+      fail("No error thrown for invalid uid");
+    } catch (IllegalArgumentException expected) {
+      // expected
+    }
+  }
+
+  @Test
+  public void testInvalidEmailIdentifier() throws Exception {
+    try {
+      new EmailIdentifier("invalid email addr");
+      fail("No error thrown for invalid email");
+    } catch (IllegalArgumentException expected) {
+      // expected
+    }
+  }
+
+  @Test
+  public void testInvalidPhoneIdentifier() throws Exception {
+    try {
+      new PhoneIdentifier("invalid phone number");
+      fail("No error thrown for invalid phone number");
+    } catch (IllegalArgumentException expected) {
+      // expected
+    }
+  }
+
+  @Test
+  public void testInvalidProviderIdentifier() throws Exception {
+    try {
+      new ProviderIdentifier("", "valid-uid");
+      fail("No error thrown for invalid provider id");
+    } catch (IllegalArgumentException expected) {
+      // expected
+    }
+
+    try {
+      new ProviderIdentifier("valid-id", "");
+      fail("No error thrown for invalid provider uid");
+    } catch (IllegalArgumentException expected) {
+      // expected
+    }
+  }
+
+  @Test
   public void testListUsers() throws Exception {
     final TestResponseInterceptor interceptor = initializeAppForUserManagement(
         TestUtils.loadResource("listUsers.json"));
@@ -275,6 +428,81 @@ public class FirebaseUserManagerTest {
     // should not throw
     FirebaseAuth.getInstance().deleteUserAsync("testuser").get();
     checkRequestHeaders(interceptor);
+  }
+
+  @Test
+  public void testDeleteUsersExceeds1000() throws Exception {
+    FirebaseApp.initializeApp(new FirebaseOptions.Builder()
+            .setCredentials(credentials)
+            .build());
+    List<String> ids = new ArrayList<>();
+    for (int i = 0; i < 1001; i++) {
+      ids.add("id" + i);
+    }
+    try {
+      FirebaseAuth.getInstance().deleteUsersAsync(ids);
+      fail("No error thrown for too many uids");
+    } catch (IllegalArgumentException expected) {
+      // expected
+    }
+  }
+
+  @Test
+  public void testDeleteUsersInvalidId() throws Exception {
+    FirebaseApp.initializeApp(new FirebaseOptions.Builder()
+            .setCredentials(credentials)
+            .build());
+    try {
+      FirebaseAuth.getInstance().deleteUsersAsync(
+          ImmutableList.of("too long " + Strings.repeat(".", 128)));
+      fail("No error thrown for too long uid");
+    } catch (IllegalArgumentException expected) {
+      // expected
+    }
+  }
+
+  @Test
+  public void testDeleteUsersIndexesErrorsCorrectly() throws Exception {
+    initializeAppForUserManagement((""
+        + "{ "
+        + "    'errors': [{ "
+        + "        'index': 0, "
+        + "        'localId': 'uid1', "
+        + "        'message': 'NOT_DISABLED : Disable the account before batch deletion.' "
+        + "    }, { "
+        + "        'index': 2, "
+        + "        'localId': 'uid3', "
+        + "        'message': 'something awful' "
+        + "    }] "
+        + "} "
+        ).replace("'", "\""));
+
+    DeleteUsersResult result = FirebaseAuth.getInstance().deleteUsersAsync(ImmutableList.of(
+          "uid1", "uid2", "uid3", "uid4"
+          )).get();
+
+    assertEquals(2, result.getSuccessCount());
+    assertEquals(2, result.getFailureCount());
+    assertEquals(2, result.getErrors().size());
+    assertEquals(0, result.getErrors().get(0).getIndex());
+    assertEquals(
+        "NOT_DISABLED : Disable the account before batch deletion.",
+        result.getErrors().get(0).getReason());
+    assertEquals(2, result.getErrors().get(1).getIndex());
+    assertEquals("something awful", result.getErrors().get(1).getReason());
+  }
+
+  @Test
+  public void testDeleteUsersSuccess() throws Exception {
+    initializeAppForUserManagement("{}");
+
+    DeleteUsersResult result = FirebaseAuth.getInstance().deleteUsersAsync(ImmutableList.of(
+          "uid1", "uid2", "uid3"
+          )).get();
+
+    assertEquals(3, result.getSuccessCount());
+    assertEquals(0, result.getFailureCount());
+    assertTrue(result.getErrors().isEmpty());
   }
 
   @Test
@@ -550,14 +778,7 @@ public class FirebaseUserManagerTest {
         .build();
 
     MockLowLevelHttpResponse response = new MockLowLevelHttpResponse();
-    MockHttpTransport transport = new MockHttpTransport.Builder()
-        .setLowLevelHttpResponse(response)
-        .build();
-    FirebaseApp.initializeApp(new FirebaseOptions.Builder()
-        .setCredentials(credentials)
-        .setProjectId("test-project-id")
-        .setHttpTransport(transport)
-        .build());
+    FirebaseAuth auth = getRetryDisabledAuth(response);
 
     // Test for common HTTP error codes
     for (int code : ImmutableList.of(302, 400, 401, 404, 500)) {
@@ -566,7 +787,7 @@ public class FirebaseUserManagerTest {
         response.setContent("{}");
         response.setStatusCode(code);
         try {
-          operation.call(FirebaseAuth.getInstance());
+          operation.call(auth);
           fail("No error thrown for HTTP error: " + code);
         } catch (ExecutionException e) {
           assertTrue(e.getCause() instanceof FirebaseAuthException);
@@ -584,7 +805,7 @@ public class FirebaseUserManagerTest {
       response.setContent("{\"error\": {\"message\": \"USER_NOT_FOUND\"}}");
       response.setStatusCode(500);
       try {
-        operation.call(FirebaseAuth.getInstance());
+        operation.call(auth);
         fail("No error thrown for HTTP error");
       }  catch (ExecutionException e) {
         assertTrue(e.getCause().toString(), e.getCause() instanceof FirebaseAuthException);
@@ -615,16 +836,9 @@ public class FirebaseUserManagerTest {
     MockLowLevelHttpResponse response = new MockLowLevelHttpResponse();
     response.setContent("{\"not\" json}");
     response.setStatusCode(500);
-    MockHttpTransport transport = new MockHttpTransport.Builder()
-        .setLowLevelHttpResponse(response)
-        .build();
-    FirebaseApp.initializeApp(new FirebaseOptions.Builder()
-        .setCredentials(credentials)
-        .setProjectId("test-project-id")
-        .setHttpTransport(transport)
-        .build());
+    FirebaseAuth auth = getRetryDisabledAuth(response);
     try {
-      FirebaseAuth.getInstance().getUserAsync("testuser").get();
+      auth.getUserAsync("testuser").get();
       fail("No error thrown for JSON error");
     }  catch (ExecutionException e) {
       assertTrue(e.getCause() instanceof FirebaseAuthException);
@@ -1173,15 +1387,10 @@ public class FirebaseUserManagerTest {
 
   @Test
   public void testHttpErrorWithCode() {
-    FirebaseApp.initializeApp(new FirebaseOptions.Builder()
-        .setCredentials(credentials)
-        .setHttpTransport(new MultiRequestMockHttpTransport(ImmutableList.of(
-            new MockLowLevelHttpResponse()
-                .setContent("{\"error\": {\"message\": \"UNAUTHORIZED_DOMAIN\"}}")
-                .setStatusCode(500))))
-        .setProjectId("test-project-id")
-        .build());
-    FirebaseAuth auth = FirebaseAuth.getInstance();
+    MockLowLevelHttpResponse response = new MockLowLevelHttpResponse()
+        .setContent("{\"error\": {\"message\": \"UNAUTHORIZED_DOMAIN\"}}")
+        .setStatusCode(500);
+    FirebaseAuth auth = getRetryDisabledAuth(response);
     FirebaseUserManager userManager = auth.getUserManager();
     try {
       userManager.getEmailActionLink(EmailLinkType.PASSWORD_RESET, "test@example.com", null);
@@ -1194,15 +1403,10 @@ public class FirebaseUserManagerTest {
 
   @Test
   public void testUnexpectedHttpError() {
-    FirebaseApp.initializeApp(new FirebaseOptions.Builder()
-        .setCredentials(credentials)
-        .setHttpTransport(new MultiRequestMockHttpTransport(ImmutableList.of(
-            new MockLowLevelHttpResponse()
-                .setContent("{}")
-                .setStatusCode(500))))
-        .setProjectId("test-project-id")
-        .build());
-    FirebaseAuth auth = FirebaseAuth.getInstance();
+    MockLowLevelHttpResponse response = new MockLowLevelHttpResponse()
+        .setContent("{}")
+        .setStatusCode(500);
+    FirebaseAuth auth = getRetryDisabledAuth(response);
     FirebaseUserManager userManager = auth.getUserManager();
     try {
       userManager.getEmailActionLink(EmailLinkType.PASSWORD_RESET, "test@example.com", null);
@@ -1229,6 +1433,26 @@ public class FirebaseUserManagerTest {
     TestResponseInterceptor interceptor = new TestResponseInterceptor();
     userManager.setInterceptor(interceptor);
     return interceptor;
+  }
+
+  private static FirebaseAuth getRetryDisabledAuth(MockLowLevelHttpResponse response) {
+    final MockHttpTransport transport = new MockHttpTransport.Builder()
+        .setLowLevelHttpResponse(response)
+        .build();
+    final FirebaseApp app = FirebaseApp.initializeApp(new FirebaseOptions.Builder()
+        .setCredentials(credentials)
+        .setProjectId("test-project-id")
+        .setHttpTransport(transport)
+        .build());
+    return FirebaseAuth.builder()
+        .setFirebaseApp(app)
+        .setUserManager(new Supplier<FirebaseUserManager>() {
+          @Override
+          public FirebaseUserManager get() {
+            return new FirebaseUserManager(app, transport.createRequestFactory());
+          }
+        })
+        .build();
   }
 
   private static void checkUserRecord(UserRecord userRecord) {

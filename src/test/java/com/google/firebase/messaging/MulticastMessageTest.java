@@ -39,6 +39,7 @@ public class MulticastMessageTest {
       .putData("key", "value")
       .build();
   private static final Notification NOTIFICATION = new Notification("title", "body");
+  private static final FcmOptions FCM_OPTIONS = FcmOptions.withAnalyticsLabel("analytics_label");
 
   @Test
   public void testMulticastMessage() {
@@ -47,6 +48,7 @@ public class MulticastMessageTest {
         .setApnsConfig(APNS)
         .setWebpushConfig(WEBPUSH)
         .setNotification(NOTIFICATION)
+        .setFcmOptions(FCM_OPTIONS)
         .putData("key1", "value1")
         .putAllData(ImmutableMap.of("key2", "value2"))
         .addToken("token1")
@@ -70,12 +72,12 @@ public class MulticastMessageTest {
   @Test
   public void testTooManyTokens() {
     MulticastMessage.Builder builder = MulticastMessage.builder();
-    for (int i = 0; i < 101; i++) {
+    for (int i = 0; i < 501; i++) {
       builder.addToken("token" + i);
     }
     try {
       builder.build();
-      fail("No error thrown for more than 100 tokens");
+      fail("No error thrown for more than 500 tokens");
     } catch (IllegalArgumentException expected) {
       // expected
     }
@@ -96,6 +98,7 @@ public class MulticastMessageTest {
     assertSame(APNS, message.getApnsConfig());
     assertSame(WEBPUSH, message.getWebpushConfig());
     assertSame(NOTIFICATION, message.getNotification());
+    assertSame(FCM_OPTIONS, message.getFcmOptions());
     assertEquals(ImmutableMap.of("key1", "value1", "key2", "value2"), message.getData());
     assertEquals(expectedToken, message.getToken());
   }

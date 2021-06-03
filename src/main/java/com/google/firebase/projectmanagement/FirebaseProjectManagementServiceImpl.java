@@ -18,6 +18,7 @@ package com.google.firebase.projectmanagement;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.api.client.http.HttpRequestFactory;
 import com.google.api.client.http.HttpResponseInterceptor;
 import com.google.api.client.util.Base64;
 import com.google.api.client.util.Key;
@@ -32,8 +33,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.ImplFirebaseTrampolines;
+import com.google.firebase.internal.ApiClientUtils;
 import com.google.firebase.internal.CallableOperation;
-import com.google.firebase.internal.FirebaseRequestInitializer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -55,6 +56,7 @@ class FirebaseProjectManagementServiceImpl implements AndroidAppService, IosAppS
   private final FirebaseApp app;
   private final Sleeper sleeper;
   private final Scheduler scheduler;
+  private final HttpRequestFactory requestFactory;
   private final HttpHelper httpHelper;
 
   private final CreateAndroidAppFromAppIdFunction createAndroidAppFromAppIdFunction =
@@ -63,30 +65,31 @@ class FirebaseProjectManagementServiceImpl implements AndroidAppService, IosAppS
       new CreateIosAppFromAppIdFunction();
 
   FirebaseProjectManagementServiceImpl(FirebaseApp app) {
-    this(app, Sleeper.DEFAULT, new FirebaseAppScheduler(app));
+    this(
+        app,
+        Sleeper.DEFAULT,
+        new FirebaseAppScheduler(app),
+        ApiClientUtils.newAuthorizedRequestFactory(app));
   }
 
-  FirebaseProjectManagementServiceImpl(FirebaseApp app, Sleeper sleeper, Scheduler scheduler) {
+  @VisibleForTesting
+  FirebaseProjectManagementServiceImpl(
+      FirebaseApp app, Sleeper sleeper, Scheduler scheduler, HttpRequestFactory requestFactory) {
     this.app = checkNotNull(app);
     this.sleeper = checkNotNull(sleeper);
     this.scheduler = checkNotNull(scheduler);
-    this.httpHelper = new HttpHelper(
-        app.getOptions().getJsonFactory(),
-        app.getOptions().getHttpTransport().createRequestFactory(
-            new FirebaseRequestInitializer(app)));
+    this.requestFactory = checkNotNull(requestFactory);
+    this.httpHelper = new HttpHelper(app.getOptions().getJsonFactory(), requestFactory);
+  }
+
+  @VisibleForTesting
+  HttpRequestFactory getRequestFactory() {
+    return requestFactory;
   }
 
   @VisibleForTesting
   void setInterceptor(HttpResponseInterceptor interceptor) {
     httpHelper.setInterceptor(interceptor);
-  }
-
-  void destroy() {
-    // NOTE: We don't explicitly tear down anything here. Any instance of IosApp, AndroidApp, or
-    // FirebaseProjectManagement that depends on this instance will no longer be able to make RPC
-    // calls. All polling or waiting iOS or Android App creations will be interrupted, even though
-    // the initial creation RPC (if made successfully) is still processed normally (asynchronously)
-    // by the server.
   }
 
   /* getAndroidApp */

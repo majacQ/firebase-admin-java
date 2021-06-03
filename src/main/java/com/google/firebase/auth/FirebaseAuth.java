@@ -18,7 +18,6 @@ package com.google.firebase.auth;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.util.Clock;
@@ -42,9 +41,11 @@ import com.google.firebase.internal.NonNull;
 import com.google.firebase.internal.Nullable;
 
 import java.io.IOException;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.Set;
 
 /**
  * This class is the entry point for all server-side Firebase Authentication actions.
@@ -61,7 +62,6 @@ public class FirebaseAuth {
   private static final String ERROR_CUSTOM_TOKEN = "ERROR_CUSTOM_TOKEN";
 
   private final Object lock = new Object();
-  private final AtomicBoolean destroyed = new AtomicBoolean(false);
 
   private final FirebaseApp firebaseApp;
   private final Supplier<FirebaseTokenFactory> tokenFactory;
@@ -75,12 +75,7 @@ public class FirebaseAuth {
     this.tokenFactory = threadSafeMemoize(builder.tokenFactory);
     this.idTokenVerifier = threadSafeMemoize(builder.idTokenVerifier);
     this.cookieVerifier = threadSafeMemoize(builder.cookieVerifier);
-    this.userManager = threadSafeMemoize(new Supplier<FirebaseUserManager>() {
-      @Override
-      public FirebaseUserManager get() {
-        return new FirebaseUserManager(firebaseApp);
-      }
-    });
+    this.userManager = threadSafeMemoize(builder.userManager);
     this.jsonFactory = firebaseApp.getOptions().getJsonFactory();
   }
 
@@ -141,7 +136,6 @@ public class FirebaseAuth {
 
   private CallableOperation<String, FirebaseAuthException> createSessionCookieOp(
       final String idToken, final SessionCookieOptions options) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(idToken), "idToken must not be null or empty");
     checkNotNull(options, "options must not be null");
     final FirebaseUserManager userManager = getUserManager();
@@ -216,7 +210,6 @@ public class FirebaseAuth {
 
   private CallableOperation<FirebaseToken, FirebaseAuthException> verifySessionCookieOp(
       final String cookie, final boolean checkRevoked) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(cookie), "Session cookie must not be null or empty");
     final FirebaseTokenVerifier sessionCookieVerifier = getSessionCookieVerifier(checkRevoked);
     return new CallableOperation<FirebaseToken, FirebaseAuthException>() {
@@ -330,7 +323,6 @@ public class FirebaseAuth {
 
   private CallableOperation<String, FirebaseAuthException> createCustomTokenOp(
       final String uid, final Map<String, Object> developerClaims) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(uid), "uid must not be null or empty");
     final FirebaseTokenFactory tokenFactory = this.tokenFactory.get();
     return new CallableOperation<String, FirebaseAuthException>() {
@@ -424,7 +416,6 @@ public class FirebaseAuth {
 
   private CallableOperation<FirebaseToken, FirebaseAuthException> verifyIdTokenOp(
       final String token, final boolean checkRevoked) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(token), "ID token must not be null or empty");
     final FirebaseTokenVerifier verifier = getIdTokenVerifier(checkRevoked);
     return new CallableOperation<FirebaseToken, FirebaseAuthException>() {
@@ -478,7 +469,6 @@ public class FirebaseAuth {
   }
 
   private CallableOperation<Void, FirebaseAuthException> revokeRefreshTokensOp(final String uid) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(uid), "uid must not be null or empty");
     final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<Void, FirebaseAuthException>() {
@@ -518,7 +508,6 @@ public class FirebaseAuth {
   }
 
   private CallableOperation<UserRecord, FirebaseAuthException> getUserOp(final String uid) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(uid), "uid must not be null or empty");
     final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<UserRecord, FirebaseAuthException>() {
@@ -556,7 +545,6 @@ public class FirebaseAuth {
 
   private CallableOperation<UserRecord, FirebaseAuthException> getUserByEmailOp(
       final String email) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(email), "email must not be null or empty");
     final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<UserRecord, FirebaseAuthException>() {
@@ -594,7 +582,6 @@ public class FirebaseAuth {
 
   private CallableOperation<UserRecord, FirebaseAuthException> getUserByPhoneNumberOp(
       final String phoneNumber) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(phoneNumber), "phone number must not be null or empty");
     final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<UserRecord, FirebaseAuthException>() {
@@ -606,7 +593,81 @@ public class FirebaseAuth {
   }
 
   /**
-   * Gets a page of users starting from the specified {@code pageToken}. Page size will be
+   * Gets the user data corresponding to the specified identifiers.
+   *
+   * <p>There are no ordering guarantees; in particular, the nth entry in the users result list is
+   * not guaranteed to correspond to the nth entry in the input parameters list.
+   *
+   * <p>A maximum of 100 identifiers may be specified. If more than 100 identifiers are
+   * supplied, this method throws an {@link IllegalArgumentException}.
+   *
+   * @param identifiers The identifiers used to indicate which user records should be returned. Must
+   *     have 100 or fewer entries.
+   * @return The corresponding user records.
+   * @throws IllegalArgumentException If any of the identifiers are invalid or if more than 100
+   *     identifiers are specified.
+   * @throws NullPointerException If the identifiers parameter is null.
+   * @throws FirebaseAuthException If an error occurs while retrieving user data.
+   */
+  public GetUsersResult getUsers(@NonNull Collection<UserIdentifier> identifiers)
+      throws FirebaseAuthException {
+    return getUsersOp(identifiers).call();
+  }
+
+  /**
+   * Gets the user data corresponding to the specified identifiers.
+   *
+   * <p>There are no ordering guarantees; in particular, the nth entry in the users result list is
+   * not guaranteed to correspond to the nth entry in the input parameters list.
+   *
+   * <p>A maximum of 100 identifiers may be specified. If more than 100 identifiers are
+   * supplied, this method throws an {@link IllegalArgumentException}.
+   *
+   * @param identifiers The identifiers used to indicate which user records should be returned.
+   *     Must have 100 or fewer entries.
+   * @return An {@code ApiFuture} that resolves to the corresponding user records.
+   * @throws IllegalArgumentException If any of the identifiers are invalid or if more than 100
+   *     identifiers are specified.
+   * @throws NullPointerException If the identifiers parameter is null.
+   */
+  public ApiFuture<GetUsersResult> getUsersAsync(@NonNull Collection<UserIdentifier> identifiers) {
+    return getUsersOp(identifiers).callAsync(firebaseApp);
+  }
+
+  private CallableOperation<GetUsersResult, FirebaseAuthException> getUsersOp(
+      @NonNull final Collection<UserIdentifier> identifiers) {
+    checkNotNull(identifiers, "identifiers must not be null");
+    checkArgument(identifiers.size() <= FirebaseUserManager.MAX_GET_ACCOUNTS_BATCH_SIZE,
+        "identifiers parameter must have <= " + FirebaseUserManager.MAX_GET_ACCOUNTS_BATCH_SIZE
+        + " entries.");
+
+    final FirebaseUserManager userManager = getUserManager();
+    return new CallableOperation<GetUsersResult, FirebaseAuthException>() {
+      @Override
+      protected GetUsersResult execute() throws FirebaseAuthException {
+        Set<UserRecord> users = userManager.getAccountInfo(identifiers);
+        Set<UserIdentifier> notFound = new HashSet<>();
+        for (UserIdentifier id : identifiers) {
+          if (!isUserFound(id, users)) {
+            notFound.add(id);
+          }
+        }
+        return new GetUsersResult(users, notFound);
+      }
+    };
+  }
+
+  private boolean isUserFound(UserIdentifier id, Collection<UserRecord> userRecords) {
+    for (UserRecord userRecord : userRecords) {
+      if (id.matches(userRecord)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Gets a page of users starting from the specified {@code pageToken}. Page size is
    * limited to 1000 users.
    *
    * @param pageToken A non-empty page token string, or null to retrieve the first page of users.
@@ -663,7 +724,6 @@ public class FirebaseAuth {
 
   private CallableOperation<ListUsersPage, FirebaseAuthException> listUsersOp(
       @Nullable final String pageToken, final int maxResults) {
-    checkNotDestroyed();
     final FirebaseUserManager userManager = getUserManager();
     final PageFactory factory = new PageFactory(
         new DefaultUserSource(userManager, jsonFactory), maxResults, pageToken);
@@ -703,7 +763,6 @@ public class FirebaseAuth {
 
   private CallableOperation<UserRecord, FirebaseAuthException> createUserOp(
       final CreateRequest request) {
-    checkNotDestroyed();
     checkNotNull(request, "create request must not be null");
     final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<UserRecord, FirebaseAuthException>() {
@@ -743,7 +802,6 @@ public class FirebaseAuth {
 
   private CallableOperation<UserRecord, FirebaseAuthException> updateUserOp(
       final UpdateRequest request) {
-    checkNotDestroyed();
     checkNotNull(request, "update request must not be null");
     final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<UserRecord, FirebaseAuthException>() {
@@ -796,7 +854,6 @@ public class FirebaseAuth {
 
   private CallableOperation<Void, FirebaseAuthException> setCustomUserClaimsOp(
       final String uid, final Map<String, Object> claims) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(uid), "uid must not be null or empty");
     final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<Void, FirebaseAuthException>() {
@@ -834,7 +891,6 @@ public class FirebaseAuth {
   }
 
   private CallableOperation<Void, FirebaseAuthException> deleteUserOp(final String uid) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(uid), "uid must not be null or empty");
     final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<Void, FirebaseAuthException>() {
@@ -847,8 +903,66 @@ public class FirebaseAuth {
   }
 
   /**
-   * Imports the provided list of users into Firebase Auth. At most 1000 users can be imported at a
-   * time. This operation is optimized for bulk imports and will ignore checks on identifier
+   * Deletes the users specified by the given identifiers.
+   *
+   * <p>Deleting a non-existing user does not generate an error (the method is idempotent).
+   * Non-existing users are considered to be successfully deleted and are therefore included in the
+   * DeleteUsersResult.getSuccessCount() value.
+   *
+   * <p>A maximum of 1000 identifiers may be supplied. If more than 1000 identifiers are
+   * supplied, this method throws an {@link IllegalArgumentException}.
+   *
+   * <p>This API has a rate limit of 1 QPS. Exceeding the limit may result in a quota exceeded
+   * error. If you want to delete more than 1000 users, we suggest adding a delay to ensure you
+   * don't exceed this limit.
+   *
+   * @param uids The uids of the users to be deleted. Must have <= 1000 entries.
+   * @return The total number of successful/failed deletions, as well as the array of errors that
+   *     correspond to the failed deletions.
+   * @throw IllegalArgumentException If any of the identifiers are invalid or if more than 1000
+   *     identifiers are specified.
+   * @throws FirebaseAuthException If an error occurs while deleting users.
+   */
+  public DeleteUsersResult deleteUsers(List<String> uids) throws FirebaseAuthException {
+    return deleteUsersOp(uids).call();
+  }
+
+  /**
+   * Similar to {@link #deleteUsers(List)} but performs the operation asynchronously.
+   *
+   * @param uids The uids of the users to be deleted. Must have <= 1000 entries.
+   * @return An {@code ApiFuture} that resolves to the total number of successful/failed
+   *     deletions, as well as the array of errors that correspond to the failed deletions. If an
+   *     error occurs while deleting the user account, the future throws a
+   *     {@link FirebaseAuthException}.
+   * @throw IllegalArgumentException If any of the identifiers are invalid or if more than 1000
+   *     identifiers are specified.
+   */
+  public ApiFuture<DeleteUsersResult> deleteUsersAsync(List<String> uids) {
+    return deleteUsersOp(uids).callAsync(firebaseApp);
+  }
+
+  private CallableOperation<DeleteUsersResult, FirebaseAuthException> deleteUsersOp(
+      final List<String> uids) {
+    checkNotNull(uids, "uids must not be null");
+    for (String uid : uids) {
+      UserRecord.checkUid(uid);
+    }
+    checkArgument(uids.size() <= FirebaseUserManager.MAX_DELETE_ACCOUNTS_BATCH_SIZE,
+        "uids parameter must have <= " + FirebaseUserManager.MAX_DELETE_ACCOUNTS_BATCH_SIZE
+        + " entries.");
+    final FirebaseUserManager userManager = getUserManager();
+    return new CallableOperation<DeleteUsersResult, FirebaseAuthException>() {
+      @Override
+      protected DeleteUsersResult execute() throws FirebaseAuthException {
+        return userManager.deleteUsers(uids);
+      }
+    };
+  }
+
+  /**
+   * Imports the provided list of users into Firebase Auth. You can import a maximum of 1000 users
+   * at a time.  This operation is optimized for bulk imports and does not check identifier
    * uniqueness which could result in duplications.
    *
    * <p>{@link UserImportOptions} is required to import users with passwords. See
@@ -916,7 +1030,6 @@ public class FirebaseAuth {
 
   private CallableOperation<UserImportResult, FirebaseAuthException> importUsersOp(
       final List<ImportUserRecord> users, final UserImportOptions options) {
-    checkNotDestroyed();
     final UserImportRequest request = new UserImportRequest(users, options, jsonFactory);
     final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<UserImportResult, FirebaseAuthException>() {
@@ -1094,7 +1207,6 @@ public class FirebaseAuth {
 
   private CallableOperation<String, FirebaseAuthException> generateEmailActionLinkOp(
           final EmailLinkType type, final String email, final ActionCodeSettings settings) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(email), "email must not be null or empty");
     if (type == EmailLinkType.EMAIL_SIGNIN) {
       checkNotNull(settings, "ActionCodeSettings must not be null when generating sign-in links");
@@ -1109,29 +1221,15 @@ public class FirebaseAuth {
   }
 
   private <T> Supplier<T> threadSafeMemoize(final Supplier<T> supplier) {
-    checkNotNull(supplier);
     return Suppliers.memoize(new Supplier<T>() {
       @Override
       public T get() {
+        checkNotNull(supplier);
         synchronized (lock) {
-          checkNotDestroyed();
           return supplier.get();
         }
       }
     });
-  }
-
-  private void checkNotDestroyed() {
-    synchronized (lock) {
-      checkState(!destroyed.get(), "FirebaseAuth instance is no longer alive. This happens when "
-          + "the parent FirebaseApp instance has been deleted.");
-    }
-  }
-
-  private void destroy() {
-    synchronized (lock) {
-      destroyed.set(true);
-    }
   }
 
   private static FirebaseAuth fromApp(final FirebaseApp app) {
@@ -1155,6 +1253,12 @@ public class FirebaseAuth {
             return FirebaseTokenUtils.createSessionCookieVerifier(app, Clock.SYSTEM);
           }
         })
+        .setUserManager(new Supplier<FirebaseUserManager>() {
+          @Override
+          public FirebaseUserManager get() {
+            return new FirebaseUserManager(app);
+          }
+        })
         .build();
   }
 
@@ -1168,6 +1272,7 @@ public class FirebaseAuth {
     private Supplier<FirebaseTokenFactory> tokenFactory;
     private Supplier<? extends FirebaseTokenVerifier> idTokenVerifier;
     private Supplier<? extends FirebaseTokenVerifier> cookieVerifier;
+    private Supplier<FirebaseUserManager> userManager;
 
     private Builder() { }
 
@@ -1191,6 +1296,11 @@ public class FirebaseAuth {
       return this;
     }
 
+    Builder setUserManager(Supplier<FirebaseUserManager> userManager) {
+      this.userManager = userManager;
+      return this;
+    }
+
     FirebaseAuth build() {
       return new FirebaseAuth(this);
     }
@@ -1200,11 +1310,6 @@ public class FirebaseAuth {
 
     FirebaseAuthService(FirebaseApp app) {
       super(SERVICE_ID, FirebaseAuth.fromApp(app));
-    }
-
-    @Override
-    public void destroy() {
-      instance.destroy();
     }
   }
 }
