@@ -27,11 +27,15 @@ import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import com.google.firebase.TestOnlyImplFirebaseTrampolines;
 import com.google.firebase.auth.MockGoogleCredentials;
+  <<<<<<< rpb/hacky-auth-bypass
+import java.util.concurrent.ExecutionException;
+  =======
 
 import com.google.firebase.remoteconfig.internal.TemplateResponse;
 
 import java.util.concurrent.ExecutionException;
 
+  >>>>>>> chong-shao-typo-fix
 import org.junit.After;
 import org.junit.Test;
 
@@ -117,6 +121,15 @@ public class FirebaseRemoteConfigTest {
 
   private static final String TEST_ETAG = "etag-123456789012-1";
 
+  <<<<<<< rpb/hacky-auth-bypass
+  @Test
+  public void testGetTemplate() throws FirebaseRemoteConfigException {
+    MockRemoteConfigClient client = MockRemoteConfigClient.fromTemplate(
+            new RemoteConfigTemplate().setETag(TEST_ETAG));
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    RemoteConfigTemplate template = remoteConfig.getTemplate();
+  =======
   // Get template tests
 
   @Test
@@ -126,6 +139,7 @@ public class FirebaseRemoteConfigTest {
     FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
 
     Template template = remoteConfig.getTemplate();
+  >>>>>>> chong-shao-typo-fix
 
     assertEquals(TEST_ETAG, template.getETag());
   }
@@ -145,10 +159,17 @@ public class FirebaseRemoteConfigTest {
   @Test
   public void testGetTemplateAsync() throws Exception {
     MockRemoteConfigClient client = MockRemoteConfigClient.fromTemplate(
+  <<<<<<< rpb/hacky-auth-bypass
+            new RemoteConfigTemplate().setETag(TEST_ETAG));
+    FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
+
+    RemoteConfigTemplate template = remoteConfig.getTemplateAsync().get();
+  =======
             new Template().setETag(TEST_ETAG));
     FirebaseRemoteConfig remoteConfig = getRemoteConfig(client);
 
     Template template = remoteConfig.getTemplateAsync().get();
+  >>>>>>> chong-shao-typo-fix
 
     assertEquals(TEST_ETAG, template.getETag());
   }
@@ -165,6 +186,8 @@ public class FirebaseRemoteConfigTest {
     }
   }
 
+  <<<<<<< rpb/hacky-auth-bypass
+  =======
   // Get template with version number tests
 
   @Test
@@ -593,6 +616,7 @@ public class FirebaseRemoteConfigTest {
     }
   }
 
+  >>>>>>> chong-shao-typo-fix
   private FirebaseRemoteConfig getRemoteConfig(FirebaseRemoteConfigClient client) {
     FirebaseApp app = FirebaseApp.initializeApp(TEST_OPTIONS);
     return new FirebaseRemoteConfig(app, client);

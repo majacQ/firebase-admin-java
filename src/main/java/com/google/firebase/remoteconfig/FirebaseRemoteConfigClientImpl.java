@@ -22,7 +22,10 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.api.client.http.HttpRequestFactory;
 import com.google.api.client.http.HttpResponseInterceptor;
+  <<<<<<< rpb/hacky-auth-bypass
+  =======
 import com.google.api.client.http.json.JsonHttpContent;
+  >>>>>>> chong-shao-typo-fix
 import com.google.api.client.json.JsonFactory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
@@ -35,10 +38,15 @@ import com.google.firebase.internal.AbstractPlatformErrorHandler;
 import com.google.firebase.internal.ApiClientUtils;
 import com.google.firebase.internal.ErrorHandlingHttpClient;
 import com.google.firebase.internal.HttpRequestInfo;
+  <<<<<<< rpb/hacky-auth-bypass
+import com.google.firebase.internal.SdkUtils;
+import com.google.firebase.remoteconfig.internal.RemoteConfigServiceErrorResponse;
+  =======
 import com.google.firebase.internal.NonNull;
 import com.google.firebase.internal.SdkUtils;
 import com.google.firebase.remoteconfig.internal.RemoteConfigServiceErrorResponse;
 import com.google.firebase.remoteconfig.internal.TemplateResponse;
+  >>>>>>> chong-shao-typo-fix
 
 import java.io.IOException;
 import java.util.List;
@@ -93,6 +101,14 @@ final class FirebaseRemoteConfigClientImpl implements FirebaseRemoteConfigClient
   }
 
   @Override
+  <<<<<<< rpb/hacky-auth-bypass
+  public RemoteConfigTemplate getTemplate() throws FirebaseRemoteConfigException {
+    HttpRequestInfo request = HttpRequestInfo.buildGetRequest(remoteConfigUrl)
+            .addAllHeaders(COMMON_HEADERS);
+    IncomingHttpResponse response = httpClient.send(request);
+    RemoteConfigTemplate parsed = httpClient.parse(response, RemoteConfigTemplate.class);
+    return parsed.setETag(getETag(response));
+  =======
   public Template getTemplate() throws FirebaseRemoteConfigException {
     HttpRequestInfo request = HttpRequestInfo.buildGetRequest(remoteConfigUrl)
             .addAllHeaders(COMMON_HEADERS);
@@ -162,6 +178,7 @@ final class FirebaseRemoteConfigClientImpl implements FirebaseRemoteConfigClient
       request.addAllParameters(options.wrapForTransport());
     }
     return httpClient.sendAndParse(request, TemplateResponse.ListVersionsResponse.class);
+  >>>>>>> chong-shao-typo-fix
   }
 
   private String getETag(IncomingHttpResponse response) {

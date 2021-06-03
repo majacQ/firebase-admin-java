@@ -30,6 +30,8 @@ public enum RemoteConfigErrorCode {
    * Internal server error.
    */
   INTERNAL,
+  <<<<<<< rpb/hacky-auth-bypass
+  =======
 
   /**
    * Request cannot be executed in the current system state, such as deleting a non-empty
@@ -57,4 +59,5 @@ public enum RemoteConfigErrorCode {
    * did not match the actual version in the database.
    */
   VERSION_MISMATCH,
+  >>>>>>> chong-shao-typo-fix
 }

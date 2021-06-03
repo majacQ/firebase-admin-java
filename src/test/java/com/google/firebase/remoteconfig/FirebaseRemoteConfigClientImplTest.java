@@ -17,8 +17,11 @@
 package com.google.firebase.remoteconfig;
 
 import static org.junit.Assert.assertEquals;
+  <<<<<<< rpb/hacky-auth-bypass
+  =======
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
+  >>>>>>> chong-shao-typo-fix
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
@@ -33,7 +36,10 @@ import com.google.api.client.http.HttpRequest;
 import com.google.api.client.http.HttpResponseException;
 import com.google.api.client.http.HttpResponseInterceptor;
 import com.google.api.client.http.HttpTransport;
+  <<<<<<< rpb/hacky-auth-bypass
+  =======
 import com.google.api.client.json.JsonParser;
+  >>>>>>> chong-shao-typo-fix
 import com.google.api.client.testing.http.MockHttpTransport;
 import com.google.api.client.testing.http.MockLowLevelHttpResponse;
 import com.google.common.collect.ImmutableList;
@@ -44,6 +50,12 @@ import com.google.firebase.FirebaseOptions;
 import com.google.firebase.OutgoingHttpRequest;
 import com.google.firebase.auth.MockGoogleCredentials;
 import com.google.firebase.internal.SdkUtils;
+  <<<<<<< rpb/hacky-auth-bypass
+import com.google.firebase.testing.TestResponseInterceptor;
+import com.google.firebase.testing.TestUtils;
+
+import java.io.IOException;
+  =======
 import com.google.firebase.remoteconfig.internal.TemplateResponse;
 import com.google.firebase.testing.TestResponseInterceptor;
 import com.google.firebase.testing.TestUtils;
@@ -52,6 +64,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URLDecoder;
 import java.util.HashMap;
+  >>>>>>> chong-shao-typo-fix
 import java.util.List;
 import java.util.Map;
 
@@ -70,6 +83,41 @@ public class FirebaseRemoteConfigClientImplTest {
           404, ErrorCode.NOT_FOUND,
           500, ErrorCode.INTERNAL);
 
+  <<<<<<< rpb/hacky-auth-bypass
+  private static final String MOCK_TEMPLATE_RESPONSE = "{\"conditions\": [], \"parameters\": {}}";
+
+  private static final String TEST_ETAG = "etag-123456789012-1";
+
+  private MockLowLevelHttpResponse response;
+  private TestResponseInterceptor interceptor;
+  private FirebaseRemoteConfigClient client;
+
+  @Before
+  public void setUp() {
+    response = new MockLowLevelHttpResponse();
+    interceptor = new TestResponseInterceptor();
+    client = initRemoteConfigClient(response, interceptor);
+  }
+
+  @Test
+  public void testGetTemplate() throws Exception {
+    response.addHeader("etag", TEST_ETAG);
+    response.setContent(MOCK_TEMPLATE_RESPONSE);
+
+    RemoteConfigTemplate template = client.getTemplate();
+
+    assertEquals(TEST_ETAG, template.getETag());
+    checkGetRequestHeader(interceptor.getLastRequest());
+  }
+
+  @Test(expected = IllegalStateException.class)
+  public void testGetTemplateWithInvalidEtags() throws FirebaseRemoteConfigException {
+    // ETag does not exist
+    response.setContent(MOCK_TEMPLATE_RESPONSE);
+
+    client.getTemplate();
+
+  =======
   private static final String MOCK_TEMPLATE_RESPONSE = TestUtils
           .loadResource("getRemoteConfig.json");
 
@@ -781,19 +829,37 @@ public class FirebaseRemoteConfigClientImplTest {
 
   @Test(expected = IllegalStateException.class)
   public void testRollbackWithEmptyEtag() throws FirebaseRemoteConfigException {
+  >>>>>>> chong-shao-typo-fix
     // Empty ETag
     response.addHeader("etag", "");
     response.setContent(MOCK_TEMPLATE_RESPONSE);
 
+  <<<<<<< rpb/hacky-auth-bypass
+    client.getTemplate();
+  }
+
+  @Test
+  public void testGetTemplateHttpError() {
+  =======
     client.rollback("24");
   }
 
   @Test
   public void testRollbackHttpError() throws IOException {
+  >>>>>>> chong-shao-typo-fix
     for (int code : HTTP_STATUS_CODES) {
       response.setStatusCode(code).setContent("{}");
 
       try {
+  <<<<<<< rpb/hacky-auth-bypass
+        client.getTemplate();
+        fail("No error thrown for HTTP error");
+      } catch (FirebaseRemoteConfigException error) {
+        checkExceptionFromHttpResponse(error, HTTP_STATUS_TO_ERROR_CODE.get(code), null,
+                "Unexpected HTTP response with status: " + code + "\n{}");
+      }
+      checkGetRequestHeader(interceptor.getLastRequest());
+  =======
         client.rollback("24");
         fail("No error thrown for HTTP error");
       } catch (FirebaseRemoteConfigException error) {
@@ -803,15 +869,24 @@ public class FirebaseRemoteConfigClientImplTest {
       checkPostRequestHeader(interceptor.getLastRequest(), ":rollback");
       checkRequestContent(interceptor.getLastRequest(),
               ImmutableMap.<String, Object>of("versionNumber", "24"));
+  >>>>>>> chong-shao-typo-fix
     }
   }
 
   @Test
+  <<<<<<< rpb/hacky-auth-bypass
+  public void testGetTemplateTransportError() {
+    client = initClientWithFaultyTransport();
+
+    try {
+      client.getTemplate();
+  =======
   public void testRollbackTransportError() {
     client = initClientWithFaultyTransport();
 
     try {
       client.rollback("24");
+  >>>>>>> chong-shao-typo-fix
       fail("No error thrown for HTTP error");
     } catch (FirebaseRemoteConfigException error) {
       assertEquals(ErrorCode.UNKNOWN, error.getErrorCode());
@@ -824,11 +899,19 @@ public class FirebaseRemoteConfigClientImplTest {
   }
 
   @Test
+  <<<<<<< rpb/hacky-auth-bypass
+  public void testGetTemplateSuccessResponseWithUnexpectedPayload() {
+    response.setContent("not valid json");
+
+    try {
+      client.getTemplate();
+  =======
   public void testRollbackSuccessResponseWithUnexpectedPayload() throws IOException {
     response.setContent("not valid json");
 
     try {
       client.rollback("24");
+  >>>>>>> chong-shao-typo-fix
       fail("No error thrown for malformed response");
     } catch (FirebaseRemoteConfigException error) {
       assertEquals(ErrorCode.UNKNOWN, error.getErrorCode());
@@ -837,6 +920,13 @@ public class FirebaseRemoteConfigClientImplTest {
       assertNotNull(error.getHttpResponse());
       assertNull(error.getRemoteConfigErrorCode());
     }
+  <<<<<<< rpb/hacky-auth-bypass
+    checkGetRequestHeader(interceptor.getLastRequest());
+  }
+
+  @Test
+  public void testGetTemplateErrorWithZeroContentResponse() {
+  =======
     checkPostRequestHeader(interceptor.getLastRequest(), ":rollback");
     checkRequestContent(interceptor.getLastRequest(),
             ImmutableMap.<String, Object>of("versionNumber", "24"));
@@ -844,10 +934,20 @@ public class FirebaseRemoteConfigClientImplTest {
 
   @Test
   public void testRollbackErrorWithZeroContentResponse() throws IOException {
+  >>>>>>> chong-shao-typo-fix
     for (int code : HTTP_STATUS_CODES) {
       response.setStatusCode(code).setZeroContent();
 
       try {
+  <<<<<<< rpb/hacky-auth-bypass
+        client.getTemplate();
+        fail("No error thrown for HTTP error");
+      } catch (FirebaseRemoteConfigException error) {
+        checkExceptionFromHttpResponse(error, HTTP_STATUS_TO_ERROR_CODE.get(code), null,
+                "Unexpected HTTP response with status: " + code + "\nnull");
+      }
+      checkGetRequestHeader(interceptor.getLastRequest());
+  =======
         client.rollback("24");
         fail("No error thrown for HTTP error");
       } catch (FirebaseRemoteConfigException error) {
@@ -857,15 +957,29 @@ public class FirebaseRemoteConfigClientImplTest {
       checkPostRequestHeader(interceptor.getLastRequest(), ":rollback");
       checkRequestContent(interceptor.getLastRequest(),
               ImmutableMap.<String, Object>of("versionNumber", "24"));
+  >>>>>>> chong-shao-typo-fix
     }
   }
 
   @Test
+  <<<<<<< rpb/hacky-auth-bypass
+  public void testGetTemplateErrorWithMalformedResponse() {
+  =======
   public void testRollbackErrorWithMalformedResponse() throws IOException {
+  >>>>>>> chong-shao-typo-fix
     for (int code : HTTP_STATUS_CODES) {
       response.setStatusCode(code).setContent("not json");
 
       try {
+  <<<<<<< rpb/hacky-auth-bypass
+        client.getTemplate();
+        fail("No error thrown for HTTP error");
+      } catch (FirebaseRemoteConfigException error) {
+        checkExceptionFromHttpResponse(error, HTTP_STATUS_TO_ERROR_CODE.get(code), null,
+                "Unexpected HTTP response with status: " + code + "\nnot json");
+      }
+      checkGetRequestHeader(interceptor.getLastRequest());
+  =======
         client.rollback("24");
         fail("No error thrown for HTTP error");
       } catch (FirebaseRemoteConfigException error) {
@@ -875,16 +989,29 @@ public class FirebaseRemoteConfigClientImplTest {
       checkPostRequestHeader(interceptor.getLastRequest(), ":rollback");
       checkRequestContent(interceptor.getLastRequest(),
               ImmutableMap.<String, Object>of("versionNumber", "24"));
+  >>>>>>> chong-shao-typo-fix
     }
   }
 
   @Test
+  <<<<<<< rpb/hacky-auth-bypass
+  public void testGetTemplateErrorWithDetails() {
+  =======
   public void testRollbackErrorWithDetails() throws IOException {
+  >>>>>>> chong-shao-typo-fix
     for (int code : HTTP_STATUS_CODES) {
       response.setStatusCode(code).setContent(
               "{\"error\": {\"status\": \"INVALID_ARGUMENT\", \"message\": \"test error\"}}");
 
       try {
+  <<<<<<< rpb/hacky-auth-bypass
+        client.getTemplate();
+        fail("No error thrown for HTTP error");
+      } catch (FirebaseRemoteConfigException error) {
+        checkExceptionFromHttpResponse(error, ErrorCode.INVALID_ARGUMENT, null, "test error");
+      }
+      checkGetRequestHeader(interceptor.getLastRequest());
+  =======
         client.rollback("24");
         fail("No error thrown for HTTP error");
       } catch (FirebaseRemoteConfigException error) {
@@ -894,17 +1021,34 @@ public class FirebaseRemoteConfigClientImplTest {
       checkPostRequestHeader(interceptor.getLastRequest(), ":rollback");
       checkRequestContent(interceptor.getLastRequest(),
               ImmutableMap.<String, Object>of("versionNumber", "24"));
+  >>>>>>> chong-shao-typo-fix
     }
   }
 
   @Test
+  <<<<<<< rpb/hacky-auth-bypass
+  public void testGetTemplateErrorWithRcError() {
+  =======
   public void testRollbackErrorWithRcError() throws IOException {
+  >>>>>>> chong-shao-typo-fix
     for (int code : HTTP_STATUS_CODES) {
       response.setStatusCode(code).setContent(
               "{\"error\": {\"status\": \"INVALID_ARGUMENT\", "
                       + "\"message\": \"[INVALID_ARGUMENT]: test error\"}}");
 
       try {
+  <<<<<<< rpb/hacky-auth-bypass
+        client.getTemplate();
+        fail("No error thrown for HTTP error");
+      } catch (FirebaseRemoteConfigException error) {
+        checkExceptionFromHttpResponse(error, ErrorCode.INVALID_ARGUMENT,
+                RemoteConfigErrorCode.INVALID_ARGUMENT, "[INVALID_ARGUMENT]: test error");
+      }
+      checkGetRequestHeader(interceptor.getLastRequest());
+    }
+  }
+
+  =======
         client.rollback("24");
         fail("No error thrown for HTTP error");
       } catch (FirebaseRemoteConfigException error) {
@@ -1105,6 +1249,7 @@ public class FirebaseRemoteConfigClientImplTest {
 
   // App related tests
 
+  >>>>>>> chong-shao-typo-fix
   @Test(expected = IllegalArgumentException.class)
   public void testBuilderNullProjectId() {
     fullyPopulatedBuilder().setProjectId(null).build();
@@ -1173,6 +1318,10 @@ public class FirebaseRemoteConfigClientImplTest {
   }
 
   private void checkGetRequestHeader(HttpRequest request) {
+  <<<<<<< rpb/hacky-auth-bypass
+    assertEquals("GET", request.getRequestMethod());
+    assertEquals(TEST_REMOTE_CONFIG_URL, request.getUrl().toString());
+  =======
     checkGetRequestHeader(request, "");
   }
 
@@ -1200,11 +1349,14 @@ public class FirebaseRemoteConfigClientImplTest {
   private void checkPostRequestHeader(HttpRequest request, String urlSuffix) {
     assertEquals("POST", request.getRequestMethod());
     assertEquals(TEST_REMOTE_CONFIG_URL + urlSuffix, request.getUrl().toString());
+  >>>>>>> chong-shao-typo-fix
     HttpHeaders headers = request.getHeaders();
     assertEquals("fire-admin-java/" + SdkUtils.getVersion(), headers.get("X-Firebase-Client"));
     assertEquals("gzip", headers.getAcceptEncoding());
   }
 
+  <<<<<<< rpb/hacky-auth-bypass
+  =======
   private void checkRequestContent(
           HttpRequest request, Map<String, Object> expected) throws IOException {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -1215,12 +1367,17 @@ public class FirebaseRemoteConfigClientImplTest {
     assertEquals(expected, parsed);
   }
 
+  >>>>>>> chong-shao-typo-fix
   private void checkExceptionFromHttpResponse(
           FirebaseRemoteConfigException error,
           ErrorCode expectedCode,
           RemoteConfigErrorCode expectedRemoteConfigCode,
+  <<<<<<< rpb/hacky-auth-bypass
+          String expectedMessage) {
+  =======
           String expectedMessage,
           String httpMethod) {
+  >>>>>>> chong-shao-typo-fix
     assertEquals(expectedCode, error.getErrorCode());
     assertEquals(expectedMessage, error.getMessage());
     assertTrue(error.getCause() instanceof HttpResponseException);
@@ -1228,7 +1385,11 @@ public class FirebaseRemoteConfigClientImplTest {
 
     assertNotNull(error.getHttpResponse());
     OutgoingHttpRequest request = error.getHttpResponse().getRequest();
+  <<<<<<< rpb/hacky-auth-bypass
+    assertEquals(HttpMethods.GET, request.getMethod());
+  =======
     assertEquals(httpMethod, request.getMethod());
+  >>>>>>> chong-shao-typo-fix
     assertTrue(request.getUrl().startsWith("https://firebaseremoteconfig.googleapis.com"));
   }
 }
