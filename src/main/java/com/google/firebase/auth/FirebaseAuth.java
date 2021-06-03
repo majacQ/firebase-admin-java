@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Google Inc.
+ * Copyright 2017 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,34 +16,34 @@
 
 package com.google.firebase.auth;
 
+  <<<<<<< redacted-passwords
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.util.Clock;
 import com.google.api.core.ApiFuture;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
+  =======
+  >>>>>>> master
+import com.google.common.base.Supplier;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.ImplFirebaseTrampolines;
-import com.google.firebase.auth.FirebaseUserManager.UserImportRequest;
-import com.google.firebase.auth.ListUsersPage.DefaultUserSource;
-import com.google.firebase.auth.ListUsersPage.PageFactory;
-import com.google.firebase.auth.UserRecord.CreateRequest;
-import com.google.firebase.auth.UserRecord.UpdateRequest;
-import com.google.firebase.auth.internal.FirebaseTokenFactory;
-import com.google.firebase.auth.internal.FirebaseTokenVerifier;
-import com.google.firebase.auth.internal.KeyManagers;
-import com.google.firebase.internal.CallableOperation;
+import com.google.firebase.auth.multitenancy.TenantManager;
 import com.google.firebase.internal.FirebaseService;
+  <<<<<<< redacted-passwords
 import com.google.firebase.internal.NonNull;
 import com.google.firebase.internal.Nullable;
+
 import java.io.IOException;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.Set;
+  =======
+  >>>>>>> master
 
 /**
  * This class is the entry point for all server-side Firebase Authentication actions.
@@ -53,42 +53,35 @@ import java.util.concurrent.atomic.AtomicReference;
  * custom tokens for use by client-side code, verifying Firebase ID Tokens received from clients, or
  * creating new FirebaseApp instances that are scoped to a particular authentication UID.
  */
-public class FirebaseAuth {
+public final class FirebaseAuth extends AbstractFirebaseAuth {
 
+  private static final String SERVICE_ID = FirebaseAuth.class.getName();
+
+  <<<<<<< redacted-passwords
   private static final String ERROR_CUSTOM_TOKEN = "ERROR_CUSTOM_TOKEN";
-  private static final String ERROR_INVALID_ID_TOKEN = "ERROR_INVALID_CREDENTIAL";
-  private static final String ERROR_INVALID_SESSION_COOKIE = "ERROR_INVALID_COOKIE";
 
-  private final Clock clock;
+  private final Object lock = new Object();
+  =======
+  private final Supplier<TenantManager> tenantManager;
+  >>>>>>> master
 
-  private final FirebaseApp firebaseApp;
-  private final KeyManagers keyManagers;
-  private final String projectId;
-  private final JsonFactory jsonFactory;
-  private final FirebaseUserManager userManager;
-  private final AtomicReference<FirebaseTokenFactory> tokenFactory;
-  private final AtomicBoolean destroyed;
-  private final Object lock;
-
-  private FirebaseAuth(FirebaseApp firebaseApp) {
-    this(firebaseApp, KeyManagers.getDefault(firebaseApp, Clock.SYSTEM), Clock.SYSTEM);
+  private FirebaseAuth(final Builder builder) {
+    super(builder);
+    tenantManager = threadSafeMemoize(builder.tenantManager);
   }
 
-  /**
-   * Constructor for injecting a GooglePublicKeysManager, which is used to verify tokens are
-   * correctly signed. This should only be used for testing to override the default key manager.
-   */
-  @VisibleForTesting
-  FirebaseAuth(FirebaseApp firebaseApp, KeyManagers keyManagers, Clock clock) {
-    this.firebaseApp = checkNotNull(firebaseApp);
-    this.keyManagers = checkNotNull(keyManagers);
-    this.clock = checkNotNull(clock);
-    this.projectId = ImplFirebaseTrampolines.getProjectId(firebaseApp);
+  <<<<<<< redacted-passwords
+  private FirebaseAuth(Builder builder) {
+    this.firebaseApp = checkNotNull(builder.firebaseApp);
+    this.tokenFactory = threadSafeMemoize(builder.tokenFactory);
+    this.idTokenVerifier = threadSafeMemoize(builder.idTokenVerifier);
+    this.cookieVerifier = threadSafeMemoize(builder.cookieVerifier);
+    this.userManager = threadSafeMemoize(builder.userManager);
     this.jsonFactory = firebaseApp.getOptions().getJsonFactory();
-    this.userManager = new FirebaseUserManager(firebaseApp);
-    this.tokenFactory = new AtomicReference<>(null);
-    this.destroyed = new AtomicBoolean(false);
-    this.lock = new Object();
+  =======
+  public TenantManager getTenantManager() {
+    return tenantManager.get();
+  >>>>>>> master
   }
 
   /**
@@ -107,14 +100,15 @@ public class FirebaseAuth {
    * @return A FirebaseAuth instance.
    */
   public static synchronized FirebaseAuth getInstance(FirebaseApp app) {
-    FirebaseAuthService service = ImplFirebaseTrampolines.getService(app, SERVICE_ID,
-        FirebaseAuthService.class);
+    FirebaseAuthService service =
+        ImplFirebaseTrampolines.getService(app, SERVICE_ID, FirebaseAuthService.class);
     if (service == null) {
       service = ImplFirebaseTrampolines.addService(app, new FirebaseAuthService(app));
     }
     return service.getInstance();
   }
 
+  <<<<<<< redacted-passwords
   /**
    * Creates a new Firebase session cookie from the given ID token and options. The returned JWT
    * can be set as a server-side session cookie with a custom cookie policy.
@@ -148,9 +142,9 @@ public class FirebaseAuth {
 
   private CallableOperation<String, FirebaseAuthException> createSessionCookieOp(
       final String idToken, final SessionCookieOptions options) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(idToken), "idToken must not be null or empty");
     checkNotNull(options, "options must not be null");
+    final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<String, FirebaseAuthException>() {
       @Override
       protected String execute() throws FirebaseAuthException {
@@ -222,41 +216,24 @@ public class FirebaseAuth {
 
   private CallableOperation<FirebaseToken, FirebaseAuthException> verifySessionCookieOp(
       final String cookie, final boolean checkRevoked) {
-    checkNotDestroyed();
-    checkState(!Strings.isNullOrEmpty(projectId),
-        "Must initialize FirebaseApp with a project ID to call verifySessionCookie()");
+    checkArgument(!Strings.isNullOrEmpty(cookie), "Session cookie must not be null or empty");
+    final FirebaseTokenVerifier sessionCookieVerifier = getSessionCookieVerifier(checkRevoked);
     return new CallableOperation<FirebaseToken, FirebaseAuthException>() {
       @Override
       public FirebaseToken execute() throws FirebaseAuthException {
-        FirebaseTokenVerifier firebaseTokenVerifier =
-            FirebaseTokenVerifier.createSessionCookieVerifier(projectId, keyManagers, clock);
-        FirebaseToken firebaseToken;
-        try {
-          firebaseToken = FirebaseToken.parse(jsonFactory, cookie);
-        } catch (IOException e) {
-          throw new FirebaseAuthException(ERROR_INVALID_SESSION_COOKIE,
-              "Failed to parse cookie", e);
-        }
-        // This will throw a FirebaseAuthException with details on how the token is invalid.
-        firebaseTokenVerifier.verifyTokenAndSignature(firebaseToken.getToken());
-
-        if (checkRevoked) {
-          checkRevoked(firebaseToken, "session cookie",
-              FirebaseUserManager.SESSION_COOKIE_REVOKED_ERROR);
-        }
-        return firebaseToken;
+        return sessionCookieVerifier.verifyToken(cookie);
       }
     };
   }
 
-  private void checkRevoked(
-      FirebaseToken firebaseToken, String label, String errorCode) throws FirebaseAuthException {
-    String uid = firebaseToken.getUid();
-    UserRecord user = userManager.getUserById(uid);
-    long issuedAt = (long) firebaseToken.getClaims().get("iat");
-    if (user.getTokensValidAfterTimestamp() > issuedAt * 1000) {
-      throw new FirebaseAuthException(errorCode, "Firebase " + label + " revoked");
+  @VisibleForTesting
+  FirebaseTokenVerifier getSessionCookieVerifier(boolean checkRevoked) {
+    FirebaseTokenVerifier verifier = cookieVerifier.get();
+    if (checkRevoked) {
+      FirebaseUserManager userManager = getUserManager();
+      verifier = RevocationCheckDecorator.decorateSessionCookieVerifier(verifier, userManager);
     }
+    return verifier;
   }
 
   /**
@@ -352,9 +329,8 @@ public class FirebaseAuth {
 
   private CallableOperation<String, FirebaseAuthException> createCustomTokenOp(
       final String uid, final Map<String, Object> developerClaims) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(uid), "uid must not be null or empty");
-    final FirebaseTokenFactory tokenFactory = ensureTokenFactory();
+    final FirebaseTokenFactory tokenFactory = this.tokenFactory.get();
     return new CallableOperation<String, FirebaseAuthException>() {
       @Override
       public String execute() throws FirebaseAuthException {
@@ -366,29 +342,6 @@ public class FirebaseAuth {
         }
       }
     };
-  }
-
-  private FirebaseTokenFactory ensureTokenFactory() {
-    FirebaseTokenFactory result = this.tokenFactory.get();
-    if (result == null) {
-      synchronized (lock) {
-        result = this.tokenFactory.get();
-        if (result == null) {
-          try {
-            result = FirebaseTokenFactory.fromApp(firebaseApp, clock);
-            this.tokenFactory.set(result);
-          } catch (IOException e) {
-            throw new IllegalStateException(
-                "Failed to initialize FirebaseTokenFactory. Make sure to initialize the SDK "
-                    + "with service account credentials or specify a service account "
-                    + "ID with iam.serviceAccounts.signBlob permission. Please refer to "
-                    + "https://firebase.google.com/docs/auth/admin/create-custom-tokens for more "
-                    + "details on creating custom tokens.", e);
-          }
-        }
-      }
-    }
-    return result;
   }
 
   /**
@@ -469,31 +422,24 @@ public class FirebaseAuth {
 
   private CallableOperation<FirebaseToken, FirebaseAuthException> verifyIdTokenOp(
       final String token, final boolean checkRevoked) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(token), "ID token must not be null or empty");
-    checkArgument(!Strings.isNullOrEmpty(projectId),
-        "Must initialize FirebaseApp with a project ID to call verifyIdToken()");
+    final FirebaseTokenVerifier verifier = getIdTokenVerifier(checkRevoked);
     return new CallableOperation<FirebaseToken, FirebaseAuthException>() {
       @Override
       protected FirebaseToken execute() throws FirebaseAuthException {
-        FirebaseTokenVerifier firebaseTokenVerifier =
-            FirebaseTokenVerifier.createIdTokenVerifier(projectId, keyManagers, clock);
-        FirebaseToken firebaseToken;
-        try {
-          firebaseToken = FirebaseToken.parse(jsonFactory, token);
-        } catch (IOException e) {
-          throw new FirebaseAuthException(ERROR_INVALID_ID_TOKEN, "Failed to parse token", e);
-        }
-
-        // This will throw a FirebaseAuthException with details on how the token is invalid.
-        firebaseTokenVerifier.verifyTokenAndSignature(firebaseToken.getToken());
-
-        if (checkRevoked) {
-          checkRevoked(firebaseToken, "auth token", FirebaseUserManager.ID_TOKEN_REVOKED_ERROR);
-        }       
-        return firebaseToken;
+        return verifier.verifyToken(token);
       }
     };
+  }
+
+  @VisibleForTesting
+  FirebaseTokenVerifier getIdTokenVerifier(boolean checkRevoked) {
+    FirebaseTokenVerifier verifier = idTokenVerifier.get();
+    if (checkRevoked) {
+      FirebaseUserManager userManager = getUserManager();
+      verifier = RevocationCheckDecorator.decorateIdTokenVerifier(verifier, userManager);
+    }
+    return verifier;
   }
 
   /**
@@ -529,8 +475,8 @@ public class FirebaseAuth {
   }
 
   private CallableOperation<Void, FirebaseAuthException> revokeRefreshTokensOp(final String uid) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(uid), "uid must not be null or empty");
+    final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<Void, FirebaseAuthException>() {
       @Override
       protected Void execute() throws FirebaseAuthException {
@@ -568,8 +514,8 @@ public class FirebaseAuth {
   }
 
   private CallableOperation<UserRecord, FirebaseAuthException> getUserOp(final String uid) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(uid), "uid must not be null or empty");
+    final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<UserRecord, FirebaseAuthException>() {
       @Override
       protected UserRecord execute() throws FirebaseAuthException {
@@ -605,8 +551,8 @@ public class FirebaseAuth {
 
   private CallableOperation<UserRecord, FirebaseAuthException> getUserByEmailOp(
       final String email) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(email), "email must not be null or empty");
+    final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<UserRecord, FirebaseAuthException>() {
       @Override
       protected UserRecord execute() throws FirebaseAuthException {
@@ -642,8 +588,8 @@ public class FirebaseAuth {
 
   private CallableOperation<UserRecord, FirebaseAuthException> getUserByPhoneNumberOp(
       final String phoneNumber) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(phoneNumber), "phone number must not be null or empty");
+    final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<UserRecord, FirebaseAuthException>() {
       @Override
       protected UserRecord execute() throws FirebaseAuthException {
@@ -653,7 +599,81 @@ public class FirebaseAuth {
   }
 
   /**
-   * Gets a page of users starting from the specified {@code pageToken}. Page size will be
+   * Gets the user data corresponding to the specified identifiers.
+   *
+   * <p>There are no ordering guarantees; in particular, the nth entry in the users result list is
+   * not guaranteed to correspond to the nth entry in the input parameters list.
+   *
+   * <p>A maximum of 100 identifiers may be specified. If more than 100 identifiers are
+   * supplied, this method throws an {@link IllegalArgumentException}.
+   *
+   * @param identifiers The identifiers used to indicate which user records should be returned. Must
+   *     have 100 or fewer entries.
+   * @return The corresponding user records.
+   * @throws IllegalArgumentException If any of the identifiers are invalid or if more than 100
+   *     identifiers are specified.
+   * @throws NullPointerException If the identifiers parameter is null.
+   * @throws FirebaseAuthException If an error occurs while retrieving user data.
+   */
+  public GetUsersResult getUsers(@NonNull Collection<UserIdentifier> identifiers)
+      throws FirebaseAuthException {
+    return getUsersOp(identifiers).call();
+  }
+
+  /**
+   * Gets the user data corresponding to the specified identifiers.
+   *
+   * <p>There are no ordering guarantees; in particular, the nth entry in the users result list is
+   * not guaranteed to correspond to the nth entry in the input parameters list.
+   *
+   * <p>A maximum of 100 identifiers may be specified. If more than 100 identifiers are
+   * supplied, this method throws an {@link IllegalArgumentException}.
+   *
+   * @param identifiers The identifiers used to indicate which user records should be returned.
+   *     Must have 100 or fewer entries.
+   * @return An {@code ApiFuture} that resolves to the corresponding user records.
+   * @throws IllegalArgumentException If any of the identifiers are invalid or if more than 100
+   *     identifiers are specified.
+   * @throws NullPointerException If the identifiers parameter is null.
+   */
+  public ApiFuture<GetUsersResult> getUsersAsync(@NonNull Collection<UserIdentifier> identifiers) {
+    return getUsersOp(identifiers).callAsync(firebaseApp);
+  }
+
+  private CallableOperation<GetUsersResult, FirebaseAuthException> getUsersOp(
+      @NonNull final Collection<UserIdentifier> identifiers) {
+    checkNotNull(identifiers, "identifiers must not be null");
+    checkArgument(identifiers.size() <= FirebaseUserManager.MAX_GET_ACCOUNTS_BATCH_SIZE,
+        "identifiers parameter must have <= " + FirebaseUserManager.MAX_GET_ACCOUNTS_BATCH_SIZE
+        + " entries.");
+
+    final FirebaseUserManager userManager = getUserManager();
+    return new CallableOperation<GetUsersResult, FirebaseAuthException>() {
+      @Override
+      protected GetUsersResult execute() throws FirebaseAuthException {
+        Set<UserRecord> users = userManager.getAccountInfo(identifiers);
+        Set<UserIdentifier> notFound = new HashSet<>();
+        for (UserIdentifier id : identifiers) {
+          if (!isUserFound(id, users)) {
+            notFound.add(id);
+          }
+        }
+        return new GetUsersResult(users, notFound);
+      }
+    };
+  }
+
+  private boolean isUserFound(UserIdentifier id, Collection<UserRecord> userRecords) {
+    for (UserRecord userRecord : userRecords) {
+      if (id.matches(userRecord)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Gets a page of users starting from the specified {@code pageToken}. Page size is
    * limited to 1000 users.
    *
    * @param pageToken A non-empty page token string, or null to retrieve the first page of users.
@@ -704,14 +724,13 @@ public class FirebaseAuth {
    * @throws IllegalArgumentException If the specified page token is empty, or max results value
    *     is invalid.
    */
-  public ApiFuture<ListUsersPage> listUsersAsync(
-      @Nullable final String pageToken, final int maxResults) {
+  public ApiFuture<ListUsersPage> listUsersAsync(@Nullable String pageToken, int maxResults) {
     return listUsersOp(pageToken, maxResults).callAsync(firebaseApp);
   }
 
   private CallableOperation<ListUsersPage, FirebaseAuthException> listUsersOp(
-      @Nullable String pageToken, int maxResults) {
-    checkNotDestroyed();
+      @Nullable final String pageToken, final int maxResults) {
+    final FirebaseUserManager userManager = getUserManager();
     final PageFactory factory = new PageFactory(
         new DefaultUserSource(userManager, jsonFactory), maxResults, pageToken);
     return new CallableOperation<ListUsersPage, FirebaseAuthException>() {
@@ -750,8 +769,8 @@ public class FirebaseAuth {
 
   private CallableOperation<UserRecord, FirebaseAuthException> createUserOp(
       final CreateRequest request) {
-    checkNotDestroyed();
     checkNotNull(request, "create request must not be null");
+    final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<UserRecord, FirebaseAuthException>() {
       @Override
       protected UserRecord execute() throws FirebaseAuthException {
@@ -789,8 +808,8 @@ public class FirebaseAuth {
 
   private CallableOperation<UserRecord, FirebaseAuthException> updateUserOp(
       final UpdateRequest request) {
-    checkNotDestroyed();
     checkNotNull(request, "update request must not be null");
+    final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<UserRecord, FirebaseAuthException>() {
       @Override
       protected UserRecord execute() throws FirebaseAuthException {
@@ -841,8 +860,8 @@ public class FirebaseAuth {
 
   private CallableOperation<Void, FirebaseAuthException> setCustomUserClaimsOp(
       final String uid, final Map<String, Object> claims) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(uid), "uid must not be null or empty");
+    final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<Void, FirebaseAuthException>() {
       @Override
       protected Void execute() throws FirebaseAuthException {
@@ -873,13 +892,13 @@ public class FirebaseAuth {
    *     {@link FirebaseAuthException}.
    * @throws IllegalArgumentException If the user ID string is null or empty.
    */
-  public ApiFuture<Void> deleteUserAsync(final String uid) {
+  public ApiFuture<Void> deleteUserAsync(String uid) {
     return deleteUserOp(uid).callAsync(firebaseApp);
   }
 
   private CallableOperation<Void, FirebaseAuthException> deleteUserOp(final String uid) {
-    checkNotDestroyed();
     checkArgument(!Strings.isNullOrEmpty(uid), "uid must not be null or empty");
+    final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<Void, FirebaseAuthException>() {
       @Override
       protected Void execute() throws FirebaseAuthException {
@@ -890,8 +909,66 @@ public class FirebaseAuth {
   }
 
   /**
-   * Imports the provided list of users into Firebase Auth. At most 1000 users can be imported at a
-   * time. This operation is optimized for bulk imports and will ignore checks on identifier
+   * Deletes the users specified by the given identifiers.
+   *
+   * <p>Deleting a non-existing user does not generate an error (the method is idempotent).
+   * Non-existing users are considered to be successfully deleted and are therefore included in the
+   * DeleteUsersResult.getSuccessCount() value.
+   *
+   * <p>A maximum of 1000 identifiers may be supplied. If more than 1000 identifiers are
+   * supplied, this method throws an {@link IllegalArgumentException}.
+   *
+   * <p>This API has a rate limit of 1 QPS. Exceeding the limit may result in a quota exceeded
+   * error. If you want to delete more than 1000 users, we suggest adding a delay to ensure you
+   * don't exceed this limit.
+   *
+   * @param uids The uids of the users to be deleted. Must have <= 1000 entries.
+   * @return The total number of successful/failed deletions, as well as the array of errors that
+   *     correspond to the failed deletions.
+   * @throw IllegalArgumentException If any of the identifiers are invalid or if more than 1000
+   *     identifiers are specified.
+   * @throws FirebaseAuthException If an error occurs while deleting users.
+   */
+  public DeleteUsersResult deleteUsers(List<String> uids) throws FirebaseAuthException {
+    return deleteUsersOp(uids).call();
+  }
+
+  /**
+   * Similar to {@link #deleteUsers(List)} but performs the operation asynchronously.
+   *
+   * @param uids The uids of the users to be deleted. Must have <= 1000 entries.
+   * @return An {@code ApiFuture} that resolves to the total number of successful/failed
+   *     deletions, as well as the array of errors that correspond to the failed deletions. If an
+   *     error occurs while deleting the user account, the future throws a
+   *     {@link FirebaseAuthException}.
+   * @throw IllegalArgumentException If any of the identifiers are invalid or if more than 1000
+   *     identifiers are specified.
+   */
+  public ApiFuture<DeleteUsersResult> deleteUsersAsync(List<String> uids) {
+    return deleteUsersOp(uids).callAsync(firebaseApp);
+  }
+
+  private CallableOperation<DeleteUsersResult, FirebaseAuthException> deleteUsersOp(
+      final List<String> uids) {
+    checkNotNull(uids, "uids must not be null");
+    for (String uid : uids) {
+      UserRecord.checkUid(uid);
+    }
+    checkArgument(uids.size() <= FirebaseUserManager.MAX_DELETE_ACCOUNTS_BATCH_SIZE,
+        "uids parameter must have <= " + FirebaseUserManager.MAX_DELETE_ACCOUNTS_BATCH_SIZE
+        + " entries.");
+    final FirebaseUserManager userManager = getUserManager();
+    return new CallableOperation<DeleteUsersResult, FirebaseAuthException>() {
+      @Override
+      protected DeleteUsersResult execute() throws FirebaseAuthException {
+        return userManager.deleteUsers(uids);
+      }
+    };
+  }
+
+  /**
+   * Imports the provided list of users into Firebase Auth. You can import a maximum of 1000 users
+   * at a time.  This operation is optimized for bulk imports and does not check identifier
    * uniqueness which could result in duplications.
    *
    * <p>{@link UserImportOptions} is required to import users with passwords. See
@@ -958,9 +1035,9 @@ public class FirebaseAuth {
   }
 
   private CallableOperation<UserImportResult, FirebaseAuthException> importUsersOp(
-      List<ImportUserRecord> users, UserImportOptions options) {
-    checkNotDestroyed();
+      final List<ImportUserRecord> users, final UserImportOptions options) {
     final UserImportRequest request = new UserImportRequest(users, options, jsonFactory);
+    final FirebaseUserManager userManager = getUserManager();
     return new CallableOperation<UserImportResult, FirebaseAuthException>() {
       @Override
       protected UserImportResult execute() throws FirebaseAuthException {
@@ -969,35 +1046,274 @@ public class FirebaseAuth {
     };
   }
 
+  /**
+   * Generates the out-of-band email action link for password reset flows for the specified email
+   * address.
+   *
+   * @param email The email of the user whose password is to be reset.
+   * @return A password reset link.
+   * @throws IllegalArgumentException If the email address is null or empty.
+   * @throws FirebaseAuthException If an error occurs while generating the link.
+   */
+  public String generatePasswordResetLink(@NonNull String email) throws FirebaseAuthException {
+    return generatePasswordResetLink(email, null);
+  }
+
+  /**
+   * Generates the out-of-band email action link for password reset flows for the specified email
+   * address.
+   *
+   * @param email The email of the user whose password is to be reset.
+   * @param settings The action code settings object which defines whether
+   *     the link is to be handled by a mobile app and the additional state information to be
+   *     passed in the deep link.
+   * @return A password reset link.
+   * @throws IllegalArgumentException If the email address is null or empty.
+   * @throws FirebaseAuthException If an error occurs while generating the link.
+   */
+  public String generatePasswordResetLink(
+      @NonNull String email, @Nullable ActionCodeSettings settings) throws FirebaseAuthException {
+    return generateEmailActionLinkOp(EmailLinkType.PASSWORD_RESET, email, settings).call();
+  }
+
+  /**
+   * Similar to {@link #generatePasswordResetLink(String)} but performs the operation
+   * asynchronously.
+   *
+   * @param email The email of the user whose password is to be reset.
+   * @return An {@code ApiFuture} which will complete successfully with the generated email action
+   *     link. If an error occurs while generating the link, the future throws a
+   *     {@link FirebaseAuthException}.
+   * @throws IllegalArgumentException If the email address is null or empty.
+   */
+  public ApiFuture<String> generatePasswordResetLinkAsync(@NonNull String email) {
+    return generatePasswordResetLinkAsync(email, null);
+  }
+
+  /**
+   * Similar to {@link #generatePasswordResetLink(String, ActionCodeSettings)} but performs the
+   * operation asynchronously.
+   *
+   * @param email The email of the user whose password is to be reset.
+   * @param settings The action code settings object which defines whether
+   *     the link is to be handled by a mobile app and the additional state information to be
+   *     passed in the deep link.
+   * @return An {@code ApiFuture} which will complete successfully with the generated email action
+   *     link. If an error occurs while generating the link, the future throws a
+   *     {@link FirebaseAuthException}.
+   * @throws IllegalArgumentException If the email address is null or empty.
+   */
+  public ApiFuture<String> generatePasswordResetLinkAsync(
+      @NonNull String email, @Nullable ActionCodeSettings settings) {
+    return generateEmailActionLinkOp(EmailLinkType.PASSWORD_RESET, email, settings)
+            .callAsync(firebaseApp);
+  }
+
+  /**
+   * Generates the out-of-band email action link for email verification flows for the specified
+   * email address.
+   *
+   * @param email The email of the user to be verified.
+   * @return An email verification link.
+   * @throws IllegalArgumentException If the email address is null or empty.
+   * @throws FirebaseAuthException If an error occurs while generating the link.
+   */
+  public String generateEmailVerificationLink(@NonNull String email) throws FirebaseAuthException {
+    return generateEmailVerificationLink(email, null);
+  }
+
+  /**
+   * Generates the out-of-band email action link for email verification flows for the specified
+   * email address, using the action code settings provided.
+   *
+   * @param email The email of the user to be verified.
+   * @return An email verification link.
+   * @throws IllegalArgumentException If the email address is null or empty.
+   * @throws FirebaseAuthException If an error occurs while generating the link.
+   */
+  public String generateEmailVerificationLink(
+      @NonNull String email, @Nullable ActionCodeSettings settings) throws FirebaseAuthException {
+    return generateEmailActionLinkOp(EmailLinkType.VERIFY_EMAIL, email, settings).call();
+  }
+
+  /**
+   * Similar to {@link #generateEmailVerificationLink(String)} but performs the
+   * operation asynchronously.
+   *
+   * @param email The email of the user to be verified.
+   * @return An {@code ApiFuture} which will complete successfully with the generated email action
+   *     link. If an error occurs while generating the link, the future throws a
+   *     {@link FirebaseAuthException}.
+   * @throws IllegalArgumentException If the email address is null or empty.
+   */
+  public ApiFuture<String> generateEmailVerificationLinkAsync(@NonNull String email) {
+    return generateEmailVerificationLinkAsync(email, null);
+  }
+
+  /**
+   * Similar to {@link #generateEmailVerificationLink(String, ActionCodeSettings)} but performs the
+   * operation asynchronously.
+   *
+   * @param email The email of the user to be verified.
+   * @param settings The action code settings object which defines whether
+   *     the link is to be handled by a mobile app and the additional state information to be
+   *     passed in the deep link.
+   * @return An {@code ApiFuture} which will complete successfully with the generated email action
+   *     link. If an error occurs while generating the link, the future throws a
+   *     {@link FirebaseAuthException}.
+   * @throws IllegalArgumentException If the email address is null or empty.
+   */
+  public ApiFuture<String> generateEmailVerificationLinkAsync(
+      @NonNull String email, @Nullable ActionCodeSettings settings) {
+    return generateEmailActionLinkOp(EmailLinkType.VERIFY_EMAIL, email, settings)
+            .callAsync(firebaseApp);
+  }
+
+  /**
+   * Generates the out-of-band email action link for email link sign-in flows, using the action
+   * code settings provided.
+   *
+   * @param email The email of the user signing in.
+   * @param settings The action code settings object which defines whether
+   *     the link is to be handled by a mobile app and the additional state information to be
+   *     passed in the deep link.
+   * @return An email verification link.
+   * @throws IllegalArgumentException If the email address is null or empty.
+   * @throws FirebaseAuthException If an error occurs while generating the link.
+   */
+  public String generateSignInWithEmailLink(
+      @NonNull String email, @NonNull ActionCodeSettings settings) throws FirebaseAuthException {
+    return generateEmailActionLinkOp(EmailLinkType.EMAIL_SIGNIN, email, settings).call();
+  }
+
+  /**
+   * Similar to {@link #generateSignInWithEmailLink(String, ActionCodeSettings)} but performs the
+   * operation asynchronously.
+   *
+   * @param email The email of the user signing in.
+   * @param settings The action code settings object which defines whether
+   *     the link is to be handled by a mobile app and the additional state information to be
+   *     passed in the deep link.
+   * @return An {@code ApiFuture} which will complete successfully with the generated email action
+   *     link. If an error occurs while generating the link, the future throws a
+   *     {@link FirebaseAuthException}.
+   * @throws IllegalArgumentException If the email address is null or empty.
+   * @throws NullPointerException If the settings is null.
+   */
+  public ApiFuture<String> generateSignInWithEmailLinkAsync(
+          String email, @NonNull ActionCodeSettings settings) {
+    return generateEmailActionLinkOp(EmailLinkType.EMAIL_SIGNIN, email, settings)
+            .callAsync(firebaseApp);
+  }
+
   @VisibleForTesting
   FirebaseUserManager getUserManager() {
-    return this.userManager;
+    return this.userManager.get();
   }
 
-  private void checkNotDestroyed() {
-    synchronized (lock) {
-      checkState(!destroyed.get(), "FirebaseAuth instance is no longer alive. This happens when "
-          + "the parent FirebaseApp instance has been deleted.");
+  private CallableOperation<String, FirebaseAuthException> generateEmailActionLinkOp(
+          final EmailLinkType type, final String email, final ActionCodeSettings settings) {
+    checkArgument(!Strings.isNullOrEmpty(email), "email must not be null or empty");
+    if (type == EmailLinkType.EMAIL_SIGNIN) {
+      checkNotNull(settings, "ActionCodeSettings must not be null when generating sign-in links");
     }
+    final FirebaseUserManager userManager = getUserManager();
+    return new CallableOperation<String, FirebaseAuthException>() {
+      @Override
+      protected String execute() throws FirebaseAuthException {
+        return userManager.getEmailActionLink(type, email, settings);
+      }
+    };
   }
 
-  private void destroy() {
-    synchronized (lock) {
-      destroyed.set(true);
-    }
+  private <T> Supplier<T> threadSafeMemoize(final Supplier<T> supplier) {
+    return Suppliers.memoize(new Supplier<T>() {
+      @Override
+      public T get() {
+        checkNotNull(supplier);
+        synchronized (lock) {
+          return supplier.get();
+        }
+      }
+    });
   }
 
-  private static final String SERVICE_ID = FirebaseAuth.class.getName();
+  =======
+  >>>>>>> master
+  private static FirebaseAuth fromApp(final FirebaseApp app) {
+    return populateBuilderFromApp(builder(), app, null)
+        .setTenantManager(new Supplier<TenantManager>() {
+          @Override
+          public TenantManager get() {
+            return new TenantManager(app);
+          }
+        })
+        .setUserManager(new Supplier<FirebaseUserManager>() {
+          @Override
+          public FirebaseUserManager get() {
+            return new FirebaseUserManager(app);
+          }
+        })
+        .build();
+  }
 
   private static class FirebaseAuthService extends FirebaseService<FirebaseAuth> {
 
     FirebaseAuthService(FirebaseApp app) {
-      super(SERVICE_ID, new FirebaseAuth(app));
-    }
-
-    @Override
-    public void destroy() {
-      instance.destroy();
+      super(SERVICE_ID, FirebaseAuth.fromApp(app));
     }
   }
+
+  static Builder builder() {
+    return new Builder();
+  }
+
+  <<<<<<< redacted-passwords
+  static class Builder {
+    private FirebaseApp firebaseApp;
+    private Supplier<FirebaseTokenFactory> tokenFactory;
+    private Supplier<? extends FirebaseTokenVerifier> idTokenVerifier;
+    private Supplier<? extends FirebaseTokenVerifier> cookieVerifier;
+    private Supplier<FirebaseUserManager> userManager;
+  =======
+  static class Builder extends AbstractFirebaseAuth.Builder<Builder> {
+  >>>>>>> master
+
+    private Supplier<TenantManager> tenantManager;
+
+    private Builder() { }
+
+    @Override
+    protected Builder getThis() {
+      return this;
+    }
+
+    public Builder setTenantManager(Supplier<TenantManager> tenantManager) {
+      this.tenantManager = tenantManager;
+      return this;
+    }
+
+  <<<<<<< redacted-passwords
+    Builder setUserManager(Supplier<FirebaseUserManager> userManager) {
+      this.userManager = userManager;
+      return this;
+    }
+
+    FirebaseAuth build() {
+      return new FirebaseAuth(this);
+    }
+  }
+
+  private static class FirebaseAuthService extends FirebaseService<FirebaseAuth> {
+
+    FirebaseAuthService(FirebaseApp app) {
+      super(SERVICE_ID, FirebaseAuth.fromApp(app));
+    }
+  }
+  =======
+    public FirebaseAuth build() {
+      return new FirebaseAuth(this);
+    }
+  }
+  >>>>>>> master
 }
