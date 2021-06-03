@@ -19,6 +19,7 @@ package com.google.firebase;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.firebase.FirebaseOptions.APPLICATION_DEFAULT_CREDENTIALS;
 
 import com.google.api.client.googleapis.util.Utils;
 import com.google.api.client.json.JsonFactory;
@@ -34,7 +35,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.firebase.internal.FirebaseAppStore;
 import com.google.firebase.internal.FirebaseScheduledExecutor;
 import com.google.firebase.internal.FirebaseService;
 import com.google.firebase.internal.ListenableFuture2ApiFuture;
@@ -46,10 +46,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
@@ -119,7 +117,6 @@ public class FirebaseApp {
 
   /** Returns a list of all FirebaseApps. */
   public static List<FirebaseApp> getApps() {
-    // TODO: reenable persistence. See b/28158809.
     synchronized (appsLock) {
       return ImmutableList.copyOf(instances.values());
     }
@@ -130,7 +127,6 @@ public class FirebaseApp {
    *
    * @throws IllegalStateException if the default app was not initialized.
    */
-  @Nullable
   public static FirebaseApp getInstance() {
     return getInstance(DEFAULT_APP_NAME);
   }
@@ -220,21 +216,16 @@ public class FirebaseApp {
 
   static FirebaseApp initializeApp(FirebaseOptions options, String name,
       TokenRefresher.Factory tokenRefresherFactory) {
-    FirebaseAppStore appStore = FirebaseAppStore.initialize();
     String normalizedName = normalize(name);
-    final FirebaseApp firebaseApp;
     synchronized (appsLock) {
       checkState(
           !instances.containsKey(normalizedName),
           "FirebaseApp name " + normalizedName + " already exists!");
 
-      firebaseApp = new FirebaseApp(normalizedName, options, tokenRefresherFactory);
+      FirebaseApp firebaseApp = new FirebaseApp(normalizedName, options, tokenRefresherFactory);
       instances.put(normalizedName, firebaseApp);
+      return firebaseApp;
     }
-
-    appStore.persistApp(firebaseApp);
-
-    return firebaseApp;
   }
 
   @VisibleForTesting
@@ -250,19 +241,13 @@ public class FirebaseApp {
   }
 
   private static List<String> getAllAppNames() {
-    Set<String> allAppNames = new HashSet<>();
+    List<String> allAppNames;
     synchronized (appsLock) {
-      for (FirebaseApp app : instances.values()) {
-        allAppNames.add(app.getName());
-      }
-      FirebaseAppStore appStore = FirebaseAppStore.getInstance();
-      if (appStore != null) {
-        allAppNames.addAll(appStore.getAllPersistedAppNames());
-      }
+      allAppNames = new ArrayList<>(instances.keySet());
     }
-    List<String> sortedNameList = new ArrayList<>(allAppNames);
-    Collections.sort(sortedNameList);
-    return sortedNameList;
+
+    Collections.sort(allAppNames);
+    return ImmutableList.copyOf(allAppNames);
   }
 
   /** Normalizes the app name. */
@@ -357,11 +342,6 @@ public class FirebaseApp {
 
     synchronized (appsLock) {
       instances.remove(name);
-    }
-
-    FirebaseAppStore appStore = FirebaseAppStore.getInstance();
-    if (appStore != null) {
-      appStore.removeApp(name);
     }
   }
 
@@ -581,23 +561,21 @@ public class FirebaseApp {
   private static FirebaseOptions getOptionsFromEnvironment() throws IOException {
     String defaultConfig = System.getenv(FIREBASE_CONFIG_ENV_VAR);
     if (Strings.isNullOrEmpty(defaultConfig)) {
-      return new FirebaseOptions.Builder()
-        .setCredentials(GoogleCredentials.getApplicationDefault())
-        .build();
+      return FirebaseOptions.builder()
+          .setCredentials(APPLICATION_DEFAULT_CREDENTIALS)
+          .build();
     }
-
     JsonFactory jsonFactory = Utils.getDefaultJsonFactory();
-    FirebaseOptions.Builder builder = new FirebaseOptions.Builder();
+    FirebaseOptions.Builder builder = FirebaseOptions.builder();
     JsonParser parser;
     if (defaultConfig.startsWith("{")) {
       parser = jsonFactory.createJsonParser(defaultConfig);
     } else {
-      FileReader reader;
-      reader = new FileReader(defaultConfig);
+      FileReader reader = new FileReader(defaultConfig);
       parser = jsonFactory.createJsonParser(reader);
     }
     parser.parseAndClose(builder);
-    builder.setCredentials(GoogleCredentials.getApplicationDefault());
+    builder.setCredentials(APPLICATION_DEFAULT_CREDENTIALS);
     return builder.build();
   }
 }

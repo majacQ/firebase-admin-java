@@ -24,6 +24,7 @@ import com.google.api.client.http.GenericUrl;
 import com.google.api.client.http.HttpRequest;
 import com.google.api.client.http.HttpRequestFactory;
 import com.google.api.client.http.HttpTransport;
+import com.google.api.client.http.LowLevelHttpRequest;
 import com.google.api.client.json.webtoken.JsonWebSignature;
 import com.google.api.client.testing.http.MockHttpTransport;
 import com.google.api.client.testing.http.MockLowLevelHttpRequest;
@@ -42,6 +43,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /** Test Utils for use by all tests (both unit and integration tests). */
 public class TestUtils {
@@ -81,6 +83,30 @@ public class TestUtils {
       f.set(null, Collections.unmodifiableMap(allVars));
     } catch (ReflectiveOperationException e) {
       throw new RuntimeException("failed to set the environment variables", e);
+    }
+  }
+
+  public static void unsetEnvironmentVariables(Set<String> vars) {
+    // Unsetting the environment variables after the JVM has started requires a bit of a hack:
+    // we reach into the package-private java.lang.ProcessEnvironment class, which incidentally
+    // is platform-specific, and replace the map held in a static final field there,
+    // using yet more reflection.
+    //
+    // This is copied from {#see com.google.apphosting.runtime.NullSandboxPlugin}
+    Map<String, String> allVars = new HashMap<>(System.getenv());
+    for (String var : vars) {
+      allVars.remove(var);
+    }
+    try {
+      Class<?> pe = Class.forName("java.lang.ProcessEnvironment", true, null);
+      Field f = pe.getDeclaredField("theUnmodifiableEnvironment");
+      f.setAccessible(true);
+      Field m = Field.class.getDeclaredField("modifiers");
+      m.setAccessible(true);
+      m.setInt(f, m.getInt(f) & ~Modifier.FINAL);
+      f.set(null, Collections.unmodifiableMap(allVars));
+    } catch (ReflectiveOperationException e) {
+      throw new RuntimeException("failed to unset the environment variables", e);
     }
   }
 
@@ -136,10 +162,27 @@ public class TestUtils {
   }
 
   public static HttpRequest createRequest(MockLowLevelHttpRequest request) throws IOException {
+    return createRequest(request, TEST_URL);
+  }
+
+  /**
+   * Creates a test HTTP POST request for the given target URL.
+   */
+  public static HttpRequest createRequest(
+      MockLowLevelHttpRequest request, GenericUrl url) throws IOException {
     HttpTransport transport = new MockHttpTransport.Builder()
         .setLowLevelHttpRequest(request)
         .build();
     HttpRequestFactory requestFactory = transport.createRequestFactory();
-    return requestFactory.buildPostRequest(TEST_URL, new EmptyContent());
+    return requestFactory.buildPostRequest(url, new EmptyContent());
+  }
+
+  public static HttpTransport createFaultyHttpTransport() {
+    return new HttpTransport() {
+      @Override
+      protected LowLevelHttpRequest buildRequest(String s, String s1) throws IOException {
+        throw new IOException("transport error");
+      }
+    };
   }
 }

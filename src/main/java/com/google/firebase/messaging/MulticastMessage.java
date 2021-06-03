@@ -22,6 +22,8 @@ import com.google.api.client.util.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.firebase.internal.NonNull;
+
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,7 +31,7 @@ import java.util.Map;
 /**
  * Represents a message that can be sent to multiple devices via Firebase Cloud Messaging (FCM).
  * Contains payload information as well as the list of device registration tokens to which the
- * message should be sent. A single {@code MulticastMessage} may contain up to 100 registration
+ * message should be sent. A single {@code MulticastMessage} may contain up to 500 registration
  * tokens.
  *
  * <p>Instances of this class are thread-safe and immutable. Use {@link MulticastMessage.Builder}
@@ -49,11 +51,12 @@ public class MulticastMessage {
   private final AndroidConfig androidConfig;
   private final WebpushConfig webpushConfig;
   private final ApnsConfig apnsConfig;
+  private final FcmOptions fcmOptions;
 
   private MulticastMessage(Builder builder) {
     this.tokens = builder.tokens.build();
     checkArgument(!this.tokens.isEmpty(), "at least one token must be specified");
-    checkArgument(this.tokens.size() <= 100, "no more than 100 tokens can be specified");
+    checkArgument(this.tokens.size() <= 500, "no more than 500 tokens can be specified");
     for (String token : this.tokens) {
       checkArgument(!Strings.isNullOrEmpty(token), "none of the tokens can be null or empty");
     }
@@ -62,6 +65,7 @@ public class MulticastMessage {
     this.androidConfig = builder.androidConfig;
     this.webpushConfig = builder.webpushConfig;
     this.apnsConfig = builder.apnsConfig;
+    this.fcmOptions = builder.fcmOptions;
   }
 
   List<Message> getMessageList() {
@@ -69,7 +73,8 @@ public class MulticastMessage {
         .setNotification(this.notification)
         .setAndroidConfig(this.androidConfig)
         .setApnsConfig(this.apnsConfig)
-        .setWebpushConfig(this.webpushConfig);
+        .setWebpushConfig(this.webpushConfig)
+        .setFcmOptions(this.fcmOptions);
     if (this.data != null) {
       builder.putAllData(this.data);
     }
@@ -97,11 +102,12 @@ public class MulticastMessage {
     private AndroidConfig androidConfig;
     private WebpushConfig webpushConfig;
     private ApnsConfig apnsConfig;
+    private FcmOptions fcmOptions;
 
     private Builder() {}
 
     /**
-     * Adds a token to which the message should be sent. Up to 100 tokens can be specified on
+     * Adds a token to which the message should be sent. Up to 500 tokens can be specified on
      * a single instance of {@link MulticastMessage}.
      *
      * @param token A non-null, non-empty Firebase device registration token.
@@ -113,13 +119,13 @@ public class MulticastMessage {
     }
 
     /**
-     * Adds a list of tokens to which the message should be sent. Up to 100 tokens can be
+     * Adds a collection of tokens to which the message should be sent. Up to 500 tokens can be
      * specified on a single instance of {@link MulticastMessage}.
      *
-     * @param tokens List of Firebase device registration tokens.
+     * @param tokens Collection of Firebase device registration tokens.
      * @return This builder.
      */
-    public Builder addAllTokens(@NonNull List<String> tokens) {
+    public Builder addAllTokens(@NonNull Collection<String> tokens) {
       this.tokens.addAll(tokens);
       return this;
     }
@@ -165,6 +171,15 @@ public class MulticastMessage {
      */
     public Builder setApnsConfig(ApnsConfig apnsConfig) {
       this.apnsConfig = apnsConfig;
+      return this;
+    }
+
+    /**
+     * Sets the {@link FcmOptions}, which can be overridden by the platform-specific {@code
+     * fcm_options} fields.
+     */
+    public Builder setFcmOptions(FcmOptions fcmOptions) {
+      this.fcmOptions = fcmOptions;
       return this;
     }
 
