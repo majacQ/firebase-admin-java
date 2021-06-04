@@ -19,10 +19,14 @@
 
     <groupId>com.google.firebase</groupId>
     <artifactId>firebase-admin</artifactId>
+  <<<<<<< revert-555-hkj-release-730
+    <version>7.2.0</version>
+  =======
   <<<<<<< redacted-passwords
     <version>6.14.0</version>
   =======
     <version>7.3.0</version>
+  >>>>>>> master
   >>>>>>> master
     <packaging>jar</packaging>
 
